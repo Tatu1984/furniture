@@ -47,7 +47,7 @@ export function Header() {
     >
       {/* Top bar */}
       <div className="bg-accent text-accent-foreground text-xs text-center py-1.5 px-4">
-        Free shipping on orders over $999 | 30-day free returns
+        Free shipping on orders over &#8377;999 | 30-day free returns
       </div>
 
       <div className="container mx-auto px-4">

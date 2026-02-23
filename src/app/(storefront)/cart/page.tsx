@@ -30,9 +30,9 @@ import { Label } from "@/components/ui/label";
 // ---------------------------------------------------------------------------
 
 function formatPrice(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
   }).format(value);
 }
 
@@ -45,7 +45,7 @@ function variantLabel(variant: { color?: string; size?: string; material?: strin
 // ---------------------------------------------------------------------------
 
 const trustBadges = [
-  { icon: Truck, label: "Free Shipping", desc: "On orders over $500" },
+  { icon: Truck, label: "Free Shipping", desc: "On orders over \u20B9500" },
   { icon: ShieldCheck, label: "Secure Payment", desc: "256-bit SSL encryption" },
   { icon: RotateCcw, label: "Easy Returns", desc: "30-day return policy" },
 ];
@@ -314,7 +314,7 @@ export default function CartPage() {
                     Add Assembly Service
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Professional assembly for all items (+$99)
+                    Professional assembly for all items (+&#8377;99)
                   </p>
                 </div>
               </div>

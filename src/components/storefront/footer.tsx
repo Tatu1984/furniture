@@ -112,7 +112,7 @@ export function Footer() {
         <Separator className="my-8" />
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>&copy; 2026 FSOW. All rights reserved.</p>
+          <p>&copy; 2026 FSOW. All rights reserved by <a href="https://infinititechpartners.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors underline">Infinititech Partners</a></p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="hover:text-primary transition-colors">
               Privacy Policy

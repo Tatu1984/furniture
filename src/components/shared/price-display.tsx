@@ -16,9 +16,9 @@ export function PriceDisplay({
   className,
 }: PriceDisplayProps) {
   const formatPrice = (value: number) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     }).format(value);
 
   const discount = compareAtPrice

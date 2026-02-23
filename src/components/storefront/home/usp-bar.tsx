@@ -7,7 +7,7 @@ const usps = [
   {
     icon: Truck,
     title: "Free Shipping",
-    description: "On all orders over $999",
+    description: "On all orders over \u20B9999",
   },
   {
     icon: RotateCcw,

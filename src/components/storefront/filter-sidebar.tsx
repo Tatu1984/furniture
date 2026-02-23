@@ -97,8 +97,8 @@ function FilterContent({
           }
         />
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>${filters.priceRange[0].toLocaleString()}</span>
-          <span>${filters.priceRange[1].toLocaleString()}</span>
+          <span>&#8377;{filters.priceRange[0].toLocaleString("en-IN")}</span>
+          <span>&#8377;{filters.priceRange[1].toLocaleString("en-IN")}</span>
         </div>
       </div>
 

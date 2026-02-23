@@ -69,7 +69,7 @@ export function CartSheet() {
                         </p>
                       )}
                       <p className="text-sm font-medium mt-1">
-                        ${item.price.toFixed(2)}
+                        &#8377;{item.price.toLocaleString("en-IN")}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <Button
@@ -116,7 +116,7 @@ export function CartSheet() {
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Subtotal</span>
-                <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                <span className="font-semibold">&#8377;{subtotal.toLocaleString("en-IN")}</span>
               </div>
               <p className="text-xs text-muted-foreground">
                 Shipping and taxes calculated at checkout

@@ -576,7 +576,7 @@ export function ProductDetailContent({ slug }: ProductDetailContentProps) {
               />
               <div className="flex flex-col">
                 <span className="text-sm font-medium">
-                  Add professional assembly (+$99)
+                  Add professional assembly (+&#8377;99)
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Our team will assemble your furniture on delivery

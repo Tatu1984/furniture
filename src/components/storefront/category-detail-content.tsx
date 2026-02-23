@@ -266,11 +266,13 @@ export function CategoryDetailContent({ slug }: CategoryDetailContentProps) {
           {/* Toolbar */}
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              {/* Mobile filter trigger */}
-              <FilterSidebar
-                filters={filters}
-                onFilterChange={handleFilterChange}
-              />
+              {/* Mobile filter trigger (hidden on desktop where sidebar is shown) */}
+              <div className="lg:hidden">
+                <FilterSidebar
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                />
+              </div>
               <p className="text-sm text-muted-foreground">
                 {filteredProducts.length}{" "}
                 {filteredProducts.length === 1 ? "product" : "products"}
