@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { BannerPosition, Prisma } from "@/generated/prisma";
+import { BannerPosition, Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {

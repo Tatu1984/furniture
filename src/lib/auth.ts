@@ -6,7 +6,7 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { hash, compare } from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@/generated/prisma";
+import { UserRole } from "@prisma/client";
 import { env } from "@/lib/env";
 
 // ---------------------------------------------------------------------------

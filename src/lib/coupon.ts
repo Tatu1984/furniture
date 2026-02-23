@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import prisma from "@/lib/db";
-import type { CouponType } from "@/generated/prisma";
+import type { CouponType } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Types

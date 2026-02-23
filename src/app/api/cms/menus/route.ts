@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { MenuLocation } from "@/generated/prisma";
+import { MenuLocation } from "@prisma/client";
 
 interface MenuItemNode {
   id: string;
