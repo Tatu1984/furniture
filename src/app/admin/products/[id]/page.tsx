@@ -209,7 +209,8 @@ export default function EditProductPage() {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(productSchema) as any,
     defaultValues: {
       name: productData.name,
       slug: productData.slug,

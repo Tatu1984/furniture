@@ -118,7 +118,8 @@ export default function NewProductPage() {
   const [activeTab, setActiveTab] = React.useState("general");
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(productSchema) as any,
     defaultValues: {
       name: "",
       slug: "",
