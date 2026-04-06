@@ -23,14 +23,14 @@ const ALLOWED_ORIGINS = [
 // ---------------------------------------------------------------------------
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fsow-secret-key-change-in-production",
+  process.env.JWT_SECRET || "dev-secret-change-in-production",
 );
 
 // ---------------------------------------------------------------------------
 // Admin Roles
 // ---------------------------------------------------------------------------
 
-const ADMIN_ROLES = ["ADMIN", "OPS", "EDITOR"] as const;
+const ADMIN_ROLES = ["ADMIN", "OPS", "EDITOR", "MANAGER"] as const;
 
 // ---------------------------------------------------------------------------
 // Rate Limit Route Matching
@@ -148,6 +148,44 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ---- Checkout Auth Gate ----
+  if (pathname === "/checkout") {
+    const token = request.cookies.get("auth-token")?.value;
+    if (!token) {
+      const loginUrl = new URL("/auth/login", request.url);
+      loginUrl.searchParams.set("redirect", "/checkout");
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // ---- Admin Page Auth Gate ----
+  if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
+    const token = request.cookies.get("auth-token")?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET);
+      const role = payload.role as string;
+      if (!ADMIN_ROLES.includes(role as (typeof ADMIN_ROLES)[number])) {
+        return NextResponse.redirect(new URL("/admin/login", request.url));
+      }
+    } catch {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+  }
+
+  // ---- Payment API Auth Check ----
+  if (pathname.startsWith("/api/payments")) {
+    const token = request.cookies.get("auth-token")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { error: "Authentication required. Please login to continue." },
+        { status: 401 },
+      );
+    }
+  }
+
   // ---- Admin API Auth Check ----
   if (pathname.startsWith("/api/admin")) {
     const token = request.cookies.get("auth-token")?.value;
@@ -203,5 +241,5 @@ export async function middleware(request: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export const config = {
-  matcher: ["/api/:path*", "/admin/:path*"],
+  matcher: ["/api/:path*", "/admin/:path*", "/checkout"],
 };

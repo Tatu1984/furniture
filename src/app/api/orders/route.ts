@@ -359,7 +359,7 @@ export async function POST(request: NextRequest) {
           shippingCost,
           tax,
           total,
-          currency: "USD",
+          currency: "INR",
           shippingAddressId: shippingAddress.id,
           billingAddressId: billingAddr.id,
           billingSnapshot: {

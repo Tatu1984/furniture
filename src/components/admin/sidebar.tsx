@@ -6,6 +6,7 @@ import {
   BarChart3,
   Box,
   CreditCard,
+  FolderOpen,
   FolderTree,
   Image,
   LayoutDashboard,
@@ -49,6 +50,7 @@ const navGroups = [
       { label: "Content", href: "/admin/content", icon: FileText },
       { label: "Menus", href: "/admin/menus", icon: Menu },
       { label: "Banners", href: "/admin/banners", icon: Image },
+      { label: "Projects", href: "/admin/projects", icon: FolderOpen },
     ],
   },
   {

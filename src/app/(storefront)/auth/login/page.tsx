@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "motion/react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
@@ -64,8 +65,18 @@ function SocialButton({
 // ---------------------------------------------------------------------------
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[80vh] items-center justify-center"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const login = useAuthStore((s) => s.login);
+  const redirect = searchParams.get("redirect") || "/account/profile";
 
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -81,11 +92,14 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    login(values.email);
+    const result = await login(values.email, values.password);
     setIsLoading(false);
-    router.push("/account/profile");
+
+    if (result.success) {
+      router.push(redirect);
+    } else {
+      toast.error(result.error || "Login failed");
+    }
   };
 
   return (

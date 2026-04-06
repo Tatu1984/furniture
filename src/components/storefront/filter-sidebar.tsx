@@ -54,7 +54,7 @@ const COLORS: { name: string; hex: string }[] = [
 const SIZES = ["Small", "Medium", "Large", "Extra Large"];
 
 const PRICE_MIN = 0;
-const PRICE_MAX = 5000;
+const PRICE_MAX = 500000;
 
 // ---------------------------------------------------------------------------
 // Inner filter content (shared between desktop sidebar and mobile sheet)

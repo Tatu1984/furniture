@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
-import { Check, Package, ArrowRight } from "lucide-react";
+import { Check, Package, ArrowRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,15 +15,21 @@ import { Separator } from "@/components/ui/separator";
 // ---------------------------------------------------------------------------
 
 export default function CheckoutConfirmationPage() {
-  const orderNumber = useMemo(
-    () => `ORD-2024-${Math.floor(1000 + Math.random() * 9000)}`,
-    []
+  return (
+    <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>}>
+      <ConfirmationContent />
+    </Suspense>
   );
+}
+
+function ConfirmationContent() {
+  const searchParams = useSearchParams();
+  const orderNumber = searchParams.get("orderNumber") || "FSOW-000000";
 
   const estimatedDelivery = useMemo(() => {
     const date = new Date();
     date.setDate(date.getDate() + 7);
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString("en-IN", {
       weekday: "long",
       month: "long",
       day: "numeric",
@@ -154,7 +161,7 @@ export default function CheckoutConfirmationPage() {
             </Link>
           </Button>
           <Button asChild variant="outline" size="lg">
-            <Link href="/account/orders">View Order</Link>
+            <Link href="/account/orders">View Orders</Link>
           </Button>
         </motion.div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
@@ -10,6 +11,7 @@ import {
   Copy,
   Archive,
   Trash2,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,52 +23,53 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import {
   DataTable,
   DataTableColumnHeader,
 } from "@/components/admin/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { formatPrice } from "@/lib/format";
 
 // --- Types ---
 
 type Product = {
   id: string;
-  image: string;
+  image: string | null;
+  imageAlt: string;
   name: string;
+  slug: string;
+  sku: string | null;
   category: string;
   price: number;
+  compareAtPrice: number | null;
   stock: number;
-  status: "active" | "draft" | "archived";
+  stockStatus: string;
+  status: string;
 };
 
-// --- Hardcoded Data ---
+type ApiProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string | null;
+  status: string;
+  price: number;
+  compareAtPrice: number | null;
+  stockQuantity: number;
+  stockStatus: string;
+  category: { id: string; name: string; slug: string } | null;
+  images: { id: string; url: string; alt: string }[];
+  _count: { variants: number; reviews: number; orderItems: number };
+};
 
-const products: Product[] = [
-  { id: "1", image: "/placeholder.svg", name: "Scandinavian Oak Dining Table", category: "Tables", price: 1299.99, stock: 12, status: "active" },
-  { id: "2", image: "/placeholder.svg", name: "Velvet Accent Chair - Emerald", category: "Chairs", price: 449.00, stock: 5, status: "active" },
-  { id: "3", image: "/placeholder.svg", name: "Walnut Floating Shelf Set", category: "Storage", price: 189.99, stock: 2, status: "active" },
-  { id: "4", image: "/placeholder.svg", name: "Linen Throw Pillow - Sand", category: "Accessories", price: 59.99, stock: 45, status: "active" },
-  { id: "5", image: "/placeholder.svg", name: "Ceramic Table Lamp - Matte Black", category: "Lighting", price: 129.00, stock: 4, status: "active" },
-  { id: "6", image: "/placeholder.svg", name: "Mid-Century Modern Sofa", category: "Sofas", price: 2199.00, stock: 8, status: "active" },
-  { id: "7", image: "/placeholder.svg", name: "Rattan Pendant Light", category: "Lighting", price: 249.00, stock: 15, status: "active" },
-  { id: "8", image: "/placeholder.svg", name: "Marble Coffee Table", category: "Tables", price: 899.99, stock: 6, status: "active" },
-  { id: "9", image: "/placeholder.svg", name: "Teak Garden Bench", category: "Outdoor", price: 549.00, stock: 10, status: "active" },
-  { id: "10", image: "/placeholder.svg", name: "Wool Area Rug 8x10", category: "Accessories", price: 799.00, stock: 20, status: "active" },
-  { id: "11", image: "/placeholder.svg", name: "Industrial Bookshelf", category: "Storage", price: 699.99, stock: 0, status: "draft" },
-  { id: "12", image: "/placeholder.svg", name: "Leather Ottoman - Cognac", category: "Chairs", price: 349.00, stock: 18, status: "active" },
-  { id: "13", image: "/placeholder.svg", name: "Minimalist Desk Lamp", category: "Lighting", price: 89.99, stock: 30, status: "active" },
-  { id: "14", image: "/placeholder.svg", name: "Bamboo Side Table", category: "Tables", price: 199.00, stock: 22, status: "active" },
-  { id: "15", image: "/placeholder.svg", name: "Velvet Curtain Panel - Navy", category: "Accessories", price: 119.99, stock: 0, status: "draft" },
-  { id: "16", image: "/placeholder.svg", name: "Modular Sectional - Gray", category: "Sofas", price: 3499.00, stock: 3, status: "active" },
-  { id: "17", image: "/placeholder.svg", name: "Woven Storage Basket Set", category: "Storage", price: 79.99, stock: 50, status: "active" },
-  { id: "18", image: "/placeholder.svg", name: "Cedar Planter Box", category: "Outdoor", price: 149.00, stock: 14, status: "active" },
-  { id: "19", image: "/placeholder.svg", name: "Art Deco Mirror - Gold", category: "Accessories", price: 299.00, stock: 0, status: "archived" },
-  { id: "20", image: "/placeholder.svg", name: "Upholstered Bed Frame - Queen", category: "Bedroom", price: 1599.00, stock: 7, status: "active" },
-  { id: "21", image: "/placeholder.svg", name: "Concrete Planter - Large", category: "Outdoor", price: 89.00, stock: 0, status: "draft" },
-  { id: "22", image: "/placeholder.svg", name: "Brass Floor Lamp", category: "Lighting", price: 379.00, stock: 9, status: "active" },
-];
+type PaginationInfo = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
 
 // --- Columns ---
 
@@ -95,13 +98,26 @@ const columns: ColumnDef<Product>[] = [
   {
     accessorKey: "image",
     header: "Image",
-    cell: ({ row }) => (
-      <div className="size-10 rounded-md bg-muted overflow-hidden">
-        <div className="size-full bg-muted flex items-center justify-center text-muted-foreground text-xs">
-          IMG
+    cell: ({ row }) => {
+      const imageUrl = row.original.image;
+      return (
+        <div className="size-10 rounded-md bg-muted overflow-hidden">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={row.original.imageAlt || row.original.name}
+              width={40}
+              height={40}
+              className="size-full object-cover"
+            />
+          ) : (
+            <div className="size-full bg-muted flex items-center justify-center text-muted-foreground text-xs">
+              IMG
+            </div>
+          )}
         </div>
-      </div>
-    ),
+      );
+    },
     enableSorting: false,
   },
   {
@@ -110,12 +126,17 @@ const columns: ColumnDef<Product>[] = [
       <DataTableColumnHeader column={column} title="Name" />
     ),
     cell: ({ row }) => (
-      <Link
-        href={`/admin/products/${row.original.id}`}
-        className="font-medium hover:underline"
-      >
-        {row.getValue("name")}
-      </Link>
+      <div>
+        <Link
+          href={`/admin/products/${row.original.id}`}
+          className="font-medium hover:underline"
+        >
+          {row.getValue("name")}
+        </Link>
+        {row.original.sku && (
+          <p className="text-xs text-muted-foreground">{row.original.sku}</p>
+        )}
+      </div>
     ),
   },
   {
@@ -130,8 +151,18 @@ const columns: ColumnDef<Product>[] = [
       <DataTableColumnHeader column={column} title="Price" />
     ),
     cell: ({ row }) => {
-      const price = parseFloat(row.getValue("price"));
-      return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+      const price = row.original.price;
+      const compareAt = row.original.compareAtPrice;
+      return (
+        <div>
+          <span>{formatPrice(price)}</span>
+          {compareAt && compareAt > price && (
+            <span className="ml-2 text-xs text-muted-foreground line-through">
+              {formatPrice(compareAt)}
+            </span>
+          )}
+        </div>
+      );
     },
   },
   {
@@ -142,7 +173,15 @@ const columns: ColumnDef<Product>[] = [
     cell: ({ row }) => {
       const stock = row.getValue("stock") as number;
       return (
-        <span className={stock === 0 ? "text-red-600 font-medium" : stock < 10 ? "text-orange-600 font-medium" : ""}>
+        <span
+          className={
+            stock === 0
+              ? "text-red-600 font-medium"
+              : stock < 10
+                ? "text-orange-600 font-medium"
+                : ""
+          }
+        >
           {stock}
         </span>
       );
@@ -192,29 +231,128 @@ const columns: ColumnDef<Product>[] = [
   },
 ];
 
+// --- Helpers ---
+
+function mapApiProduct(p: ApiProduct): Product {
+  const statusMap: Record<string, string> = {
+    PUBLISHED: "published",
+    DRAFT: "draft",
+    ARCHIVED: "archived",
+  };
+
+  return {
+    id: p.id,
+    image: p.images?.[0]?.url ?? null,
+    imageAlt: p.images?.[0]?.alt ?? "",
+    name: p.name,
+    slug: p.slug,
+    sku: p.sku,
+    category: p.category?.name ?? "Uncategorized",
+    price: p.price,
+    compareAtPrice: p.compareAtPrice,
+    stock: p.stockQuantity,
+    stockStatus: p.stockStatus,
+    status: statusMap[p.status] ?? p.status.toLowerCase(),
+  };
+}
+
 // --- Page ---
 
 export default function ProductsPage() {
   const [activeTab, setActiveTab] = React.useState("all");
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [pagination, setPagination] = React.useState<PaginationInfo>({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
+  const [counts, setCounts] = React.useState({
+    all: 0,
+    published: 0,
+    draft: 0,
+    archived: 0,
+  });
+  const [loading, setLoading] = React.useState(true);
 
-  const filteredProducts = React.useMemo(() => {
-    if (activeTab === "all") return products;
-    return products.filter((p) => p.status === activeTab);
-  }, [activeTab]);
+  // Fetch tab counts once on mount
+  React.useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const [allRes, pubRes, draftRes, archRes] = await Promise.all([
+          fetch("/api/admin/products?limit=1"),
+          fetch("/api/admin/products?limit=1&status=PUBLISHED"),
+          fetch("/api/admin/products?limit=1&status=DRAFT"),
+          fetch("/api/admin/products?limit=1&status=ARCHIVED"),
+        ]);
+        const [allData, pubData, draftData, archData] = await Promise.all([
+          allRes.json(),
+          pubRes.json(),
+          draftRes.json(),
+          archRes.json(),
+        ]);
+        setCounts({
+          all: allData.pagination?.total ?? 0,
+          published: pubData.pagination?.total ?? 0,
+          draft: draftData.pagination?.total ?? 0,
+          archived: archData.pagination?.total ?? 0,
+        });
+      } catch {
+        // Counts will remain at 0 on error
+      }
+    }
+    fetchCounts();
+  }, []);
 
-  const counts = React.useMemo(() => ({
-    all: products.length,
-    active: products.filter((p) => p.status === "active").length,
-    draft: products.filter((p) => p.status === "draft").length,
-    archived: products.filter((p) => p.status === "archived").length,
-  }), []);
+  // Fetch products whenever tab, search, or page changes
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function fetchProducts() {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(pagination.page));
+        params.set("limit", String(pagination.limit));
+
+        if (activeTab !== "all") {
+          params.set("status", activeTab.toUpperCase());
+        }
+
+        const res = await fetch(`/api/admin/products?${params.toString()}`);
+        if (!res.ok) throw new Error("Failed to fetch products");
+
+        const json = await res.json();
+        if (cancelled) return;
+
+        setProducts((json.data as ApiProduct[]).map(mapApiProduct));
+        setPagination(json.pagination);
+      } catch (err) {
+        console.error("Error fetching products:", err);
+        if (!cancelled) {
+          setProducts([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchProducts();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, pagination.page, pagination.limit]);
+
+  const handleTabChange = React.useCallback((value: string) => {
+    setActiveTab(value);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, []);
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Products"
-        description="Manage your product catalog"
-      >
+      <PageHeader title="Products" description="Manage your product catalog">
         <Button asChild>
           <Link href="/admin/products/new">
             <Plus className="size-4" />
@@ -223,21 +361,34 @@ export default function ProductsPage() {
         </Button>
       </PageHeader>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
-          <TabsTrigger value="active">Active ({counts.active})</TabsTrigger>
+          <TabsTrigger value="published">
+            Published ({counts.published})
+          </TabsTrigger>
           <TabsTrigger value="draft">Draft ({counts.draft})</TabsTrigger>
-          <TabsTrigger value="archived">Archived ({counts.archived})</TabsTrigger>
+          <TabsTrigger value="archived">
+            Archived ({counts.archived})
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      <DataTable
-        columns={columns}
-        data={filteredProducts}
-        searchKey="name"
-        searchPlaceholder="Search products..."
-      />
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">
+            Loading products...
+          </span>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={products}
+          searchKey="name"
+          searchPlaceholder="Search products..."
+        />
+      )}
     </div>
   );
 }

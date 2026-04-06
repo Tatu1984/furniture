@@ -8,7 +8,9 @@ import {
   ChevronRight,
   FolderOpen,
   Upload,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +45,20 @@ import { StatusBadge } from "@/components/shared/status-badge";
 
 // --- Types ---
 
+type ApiCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  image: string | null;
+  isActive: boolean;
+  isFeatured: boolean;
+  sortOrder: number;
+  level: number;
+  parent: { id: string; name: string } | null;
+  _count: { products: number; children: number };
+};
+
 type Category = {
   id: string;
   name: string;
@@ -53,96 +69,6 @@ type Category = {
   status: "active" | "draft";
   children?: Category[];
 };
-
-// --- Hardcoded Data ---
-
-const categories: Category[] = [
-  {
-    id: "1",
-    name: "Living Room",
-    slug: "living-room",
-    description: "Furniture and decor for living spaces",
-    parentId: null,
-    productsCount: 42,
-    status: "active",
-    children: [
-      { id: "1a", name: "Sofas & Couches", slug: "sofas-couches", description: "", parentId: "1", productsCount: 18, status: "active" },
-      { id: "1b", name: "Coffee Tables", slug: "coffee-tables", description: "", parentId: "1", productsCount: 12, status: "active" },
-      { id: "1c", name: "TV Stands", slug: "tv-stands", description: "", parentId: "1", productsCount: 8, status: "active" },
-      { id: "1d", name: "Accent Chairs", slug: "accent-chairs", description: "", parentId: "1", productsCount: 4, status: "draft" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Dining Room",
-    slug: "dining-room",
-    description: "Tables, chairs, and dining accessories",
-    parentId: null,
-    productsCount: 28,
-    status: "active",
-    children: [
-      { id: "2a", name: "Dining Tables", slug: "dining-tables", description: "", parentId: "2", productsCount: 15, status: "active" },
-      { id: "2b", name: "Dining Chairs", slug: "dining-chairs", description: "", parentId: "2", productsCount: 10, status: "active" },
-      { id: "2c", name: "Bar Stools", slug: "bar-stools", description: "", parentId: "2", productsCount: 3, status: "active" },
-    ],
-  },
-  {
-    id: "3",
-    name: "Bedroom",
-    slug: "bedroom",
-    description: "Beds, dressers, and bedroom furniture",
-    parentId: null,
-    productsCount: 35,
-    status: "active",
-    children: [
-      { id: "3a", name: "Beds & Frames", slug: "beds-frames", description: "", parentId: "3", productsCount: 14, status: "active" },
-      { id: "3b", name: "Dressers", slug: "dressers", description: "", parentId: "3", productsCount: 9, status: "active" },
-      { id: "3c", name: "Nightstands", slug: "nightstands", description: "", parentId: "3", productsCount: 12, status: "active" },
-    ],
-  },
-  {
-    id: "4",
-    name: "Office",
-    slug: "office",
-    description: "Desks, office chairs, and workspace furniture",
-    parentId: null,
-    productsCount: 22,
-    status: "active",
-    children: [
-      { id: "4a", name: "Desks", slug: "desks", description: "", parentId: "4", productsCount: 10, status: "active" },
-      { id: "4b", name: "Office Chairs", slug: "office-chairs", description: "", parentId: "4", productsCount: 8, status: "active" },
-      { id: "4c", name: "Bookcases", slug: "bookcases", description: "", parentId: "4", productsCount: 4, status: "draft" },
-    ],
-  },
-  {
-    id: "5",
-    name: "Outdoor",
-    slug: "outdoor",
-    description: "Patio and garden furniture",
-    parentId: null,
-    productsCount: 18,
-    status: "active",
-    children: [
-      { id: "5a", name: "Patio Sets", slug: "patio-sets", description: "", parentId: "5", productsCount: 6, status: "active" },
-      { id: "5b", name: "Garden Furniture", slug: "garden-furniture", description: "", parentId: "5", productsCount: 7, status: "active" },
-      { id: "5c", name: "Planters", slug: "planters", description: "", parentId: "5", productsCount: 5, status: "active" },
-    ],
-  },
-  {
-    id: "6",
-    name: "Lighting",
-    slug: "lighting",
-    description: "Lamps, pendants, and lighting fixtures",
-    parentId: null,
-    productsCount: 24,
-    status: "active",
-    children: [
-      { id: "6a", name: "Table Lamps", slug: "table-lamps", description: "", parentId: "6", productsCount: 8, status: "active" },
-      { id: "6b", name: "Floor Lamps", slug: "floor-lamps", description: "", parentId: "6", productsCount: 6, status: "active" },
-      { id: "6c", name: "Pendant Lights", slug: "pendant-lights", description: "", parentId: "6", productsCount: 10, status: "active" },
-    ],
-  },
-];
 
 // --- Helper ---
 
@@ -155,7 +81,40 @@ function generateSlug(name: string) {
 
 // --- Component ---
 
+function buildTree(flat: ApiCategory[]): Category[] {
+  const map = new Map<string, Category>();
+  const roots: Category[] = [];
+
+  for (const item of flat) {
+    map.set(item.id, {
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      description: item.description ?? "",
+      parentId: item.parent?.id ?? null,
+      productsCount: item._count.products,
+      status: item.isActive ? "active" : "draft",
+      children: [],
+    });
+  }
+
+  for (const item of flat) {
+    const node = map.get(item.id)!;
+    if (item.parent?.id && map.has(item.parent.id)) {
+      map.get(item.parent.id)!.children!.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
+
 export default function CategoriesPage() {
+  const [categories, setCategories] = React.useState<Category[]>([]);
+  const [flatCategories, setFlatCategories] = React.useState<ApiCategory[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [submitting, setSubmitting] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [formData, setFormData] = React.useState({
     name: "",
@@ -165,6 +124,25 @@ export default function CategoriesPage() {
     status: "active",
   });
 
+  const fetchCategories = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/categories?flat=true");
+      if (!res.ok) throw new Error("Failed to fetch categories");
+      const json = await res.json();
+      const flat: ApiCategory[] = json.data;
+      setFlatCategories(flat);
+      setCategories(buildTree(flat));
+    } catch {
+      toast.error("Failed to load categories");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
   function handleNameChange(name: string) {
     setFormData((prev) => ({
       ...prev,
@@ -173,10 +151,55 @@ export default function CategoriesPage() {
     }));
   }
 
-  function handleSubmit() {
-    console.log("Category data:", formData);
-    setDialogOpen(false);
-    setFormData({ name: "", slug: "", description: "", parentId: "", status: "active" });
+  async function handleSubmit() {
+    if (!formData.name.trim()) {
+      toast.error("Category name is required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const body: Record<string, unknown> = {
+        name: formData.name,
+        slug: formData.slug,
+        description: formData.description || undefined,
+        isActive: formData.status === "active",
+      };
+      if (formData.parentId && formData.parentId !== "none") {
+        body.parentId = formData.parentId;
+      }
+      const res = await fetch("/api/admin/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create category");
+      }
+      toast.success("Category created successfully");
+      setDialogOpen(false);
+      setFormData({ name: "", slug: "", description: "", parentId: "", status: "active" });
+      fetchCategories();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create category");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/admin/categories/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete category");
+      }
+      toast.success("Category deleted");
+      fetchCategories();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete category");
+    }
   }
 
   return (
@@ -241,11 +264,13 @@ export default function CategoriesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None (top-level)</SelectItem>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
+                    {flatCategories
+                      .filter((cat) => !cat.parent)
+                      .map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -280,91 +305,112 @@ export default function CategoriesPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit}>Create Category</Button>
+              <Button onClick={handleSubmit} disabled={submitting}>
+                {submitting && <Loader2 className="size-4 animate-spin" />}
+                {submitting ? "Creating..." : "Create Category"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </PageHeader>
 
       {/* Categories Table with Hierarchy */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead className="text-center">Products</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {categories.map((category) => (
-              <React.Fragment key={category.id}>
-                {/* Parent Row */}
-                <TableRow>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="size-4 text-muted-foreground" />
-                      <span className="font-medium">{category.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {category.slug}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {category.productsCount}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={category.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon-xs">
-                        <Edit className="size-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon-xs">
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-
-                {/* Children Rows */}
-                {category.children?.map((child) => (
-                  <TableRow key={child.id}>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          No categories found. Create your first category to get started.
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead className="text-center">Products</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {categories.map((category) => (
+                <React.Fragment key={category.id}>
+                  {/* Parent Row */}
+                  <TableRow>
                     <TableCell>
-                      <div className="flex items-center gap-2 pl-8">
-                        <ChevronRight className="size-3.5 text-muted-foreground" />
-                        <span className="text-sm">{child.name}</span>
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="size-4 text-muted-foreground" />
+                        <span className="font-medium">{category.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {child.slug}
+                    <TableCell className="text-muted-foreground">
+                      {category.slug}
                     </TableCell>
-                    <TableCell className="text-center text-sm">
-                      {child.productsCount}
+                    <TableCell className="text-center">
+                      {category.productsCount}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={child.status} />
+                      <StatusBadge status={category.status} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon-xs">
                           <Edit className="size-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon-xs">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => handleDelete(category.id, category.name)}
+                        >
                           <Trash2 className="size-3.5" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </React.Fragment>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+
+                  {/* Children Rows */}
+                  {category.children?.map((child) => (
+                    <TableRow key={child.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2 pl-8">
+                          <ChevronRight className="size-3.5 text-muted-foreground" />
+                          <span className="text-sm">{child.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {child.slug}
+                      </TableCell>
+                      <TableCell className="text-center text-sm">
+                        {child.productsCount}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={child.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon-xs">
+                            <Edit className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => handleDelete(child.id, child.name)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   Search,
   ShoppingBag,
   User,
+  LogOut,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { SearchCommand } from "@/components/shared/search-command";
 import { cn } from "@/lib/utils";
 import { useScrollDirection } from "@/hooks/use-scroll-direction";
@@ -25,7 +27,7 @@ const navLinks = [
   { label: "Bedroom", href: "/categories/bedroom" },
   { label: "Dining", href: "/categories/dining" },
   { label: "Office", href: "/categories/office" },
-  { label: "Outdoor", href: "/categories/outdoor" },
+  { label: "Projects", href: "/projects" },
   { label: "Sale", href: "/categories/decor" },
 ];
 
@@ -37,6 +39,8 @@ export function Header() {
   const totalItems = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
   const wishlistCount = useWishlistStore((s) => s.items.length);
   const toggleCart = useCartStore((s) => s.toggleCart);
+  const { user, isAuthenticated } = useAuthStore();
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <header
@@ -78,13 +82,34 @@ export function Header() {
                   </Link>
                 ))}
                 <div className="border-t pt-4 mt-4">
-                  <Link
-                    href="/auth/login"
-                    onClick={() => setMobileOpen(false)}
-                    className="text-lg font-medium text-muted-foreground hover:text-primary"
-                  >
-                    Sign In
-                  </Link>
+                  {isAuthenticated ? (
+                    <>
+                      <Link
+                        href="/account/profile"
+                        onClick={() => setMobileOpen(false)}
+                        className="text-lg font-medium text-muted-foreground hover:text-primary"
+                      >
+                        My Account
+                      </Link>
+                      <button
+                        onClick={() => {
+                          logout();
+                          setMobileOpen(false);
+                        }}
+                        className="mt-4 text-lg font-medium text-muted-foreground hover:text-primary"
+                      >
+                        Sign Out
+                      </button>
+                    </>
+                  ) : (
+                    <Link
+                      href="/auth/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="text-lg font-medium text-muted-foreground hover:text-primary"
+                    >
+                      Sign In
+                    </Link>
+                  )}
                 </div>
               </div>
             </SheetContent>
@@ -135,11 +160,29 @@ export function Header() {
             </Button>
 
             {/* Account */}
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/auth/login">
-                <User className="h-5 w-5" />
-              </Link>
-            </Button>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" asChild>
+                  <Link href="/account/profile" title={user?.firstName || "Account"}>
+                    <User className="h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => logout()}
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="icon" asChild>
+                <Link href="/auth/login">
+                  <User className="h-5 w-5" />
+                </Link>
+              </Button>
+            )}
 
             {/* Wishlist */}
             <Button variant="ghost" size="icon" className="relative" asChild>

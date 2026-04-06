@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "motion/react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,13 @@ const registerSchema = z
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+        "Must include uppercase, lowercase, and a number"
+      ),
     confirmPassword: z.string().min(1, "Please confirm your password"),
     terms: z.boolean().refine((v) => v === true, {
       message: "You must agree to the terms",
@@ -123,8 +130,18 @@ function SocialButton({
 // ---------------------------------------------------------------------------
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[80vh] items-center justify-center"><div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
-  const login = useAuthStore((s) => s.login);
+  const searchParams = useSearchParams();
+  const register = useAuthStore((s) => s.register);
+  const redirect = searchParams.get("redirect") || "/account/profile";
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -146,11 +163,20 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    login(values.email);
+    const result = await register({
+      email: values.email,
+      password: values.password,
+      firstName: values.firstName,
+      lastName: values.lastName,
+    });
     setIsLoading(false);
-    router.push("/account/profile");
+
+    if (result.success) {
+      toast.success("Account created successfully!");
+      router.push(redirect);
+    } else {
+      toast.error(result.error || "Registration failed");
+    }
   };
 
   return (

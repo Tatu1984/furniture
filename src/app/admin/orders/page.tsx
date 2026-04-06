@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Eye } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,44 +14,27 @@ import {
   DataTableColumnHeader,
 } from "@/components/admin/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { formatPrice } from "@/lib/format";
 
 // --- Types ---
 
 type Order = {
   id: string;
+  orderNumber: string;
   customer: string;
+  email: string;
   date: string;
   items: number;
   total: number;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: string;
+  paymentStatus: string;
 };
-
-// --- Hardcoded Data ---
-
-const orders: Order[] = [
-  { id: "ORD-2024-001", customer: "Sarah Johnson", date: "2024-12-15", items: 3, total: 1249.99, status: "delivered" },
-  { id: "ORD-2024-002", customer: "Michael Chen", date: "2024-12-14", items: 1, total: 899.00, status: "shipped" },
-  { id: "ORD-2024-003", customer: "Emily Davis", date: "2024-12-14", items: 4, total: 2450.00, status: "processing" },
-  { id: "ORD-2024-004", customer: "James Wilson", date: "2024-12-13", items: 2, total: 675.50, status: "pending" },
-  { id: "ORD-2024-005", customer: "Lisa Anderson", date: "2024-12-13", items: 1, total: 1850.00, status: "cancelled" },
-  { id: "ORD-2024-006", customer: "Robert Taylor", date: "2024-12-12", items: 5, total: 3299.00, status: "delivered" },
-  { id: "ORD-2024-007", customer: "Amanda Martinez", date: "2024-12-12", items: 2, total: 548.99, status: "shipped" },
-  { id: "ORD-2024-008", customer: "David Brown", date: "2024-12-11", items: 1, total: 1299.99, status: "delivered" },
-  { id: "ORD-2024-009", customer: "Jennifer Lee", date: "2024-12-11", items: 3, total: 987.00, status: "processing" },
-  { id: "ORD-2024-010", customer: "Christopher Garcia", date: "2024-12-10", items: 2, total: 449.00, status: "pending" },
-  { id: "ORD-2024-011", customer: "Michelle Robinson", date: "2024-12-10", items: 1, total: 2199.00, status: "shipped" },
-  { id: "ORD-2024-012", customer: "Daniel White", date: "2024-12-09", items: 4, total: 1654.50, status: "delivered" },
-  { id: "ORD-2024-013", customer: "Ashley Thompson", date: "2024-12-09", items: 2, total: 738.00, status: "pending" },
-  { id: "ORD-2024-014", customer: "Kevin Harris", date: "2024-12-08", items: 1, total: 549.00, status: "cancelled" },
-  { id: "ORD-2024-015", customer: "Stephanie Clark", date: "2024-12-08", items: 3, total: 1875.99, status: "processing" },
-  { id: "ORD-2024-016", customer: "Brian Lewis", date: "2024-12-07", items: 2, total: 999.00, status: "delivered" },
-];
 
 // --- Columns ---
 
 const columns: ColumnDef<Order>[] = [
   {
-    accessorKey: "id",
+    accessorKey: "orderNumber",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Order #" />
     ),
@@ -60,7 +43,7 @@ const columns: ColumnDef<Order>[] = [
         href={`/admin/orders/${row.original.id}`}
         className="font-medium hover:underline"
       >
-        {row.getValue("id")}
+        {row.getValue("orderNumber")}
       </Link>
     ),
   },
@@ -69,6 +52,12 @@ const columns: ColumnDef<Order>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Customer" />
     ),
+    cell: ({ row }) => (
+      <div>
+        <p className="font-medium">{row.getValue("customer")}</p>
+        <p className="text-xs text-muted-foreground">{row.original.email}</p>
+      </div>
+    ),
   },
   {
     accessorKey: "date",
@@ -76,7 +65,13 @@ const columns: ColumnDef<Order>[] = [
       <DataTableColumnHeader column={column} title="Date" />
     ),
     cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.getValue("date")}</span>
+      <span className="text-muted-foreground">
+        {new Date(row.getValue("date")).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })}
+      </span>
     ),
   },
   {
@@ -93,14 +88,11 @@ const columns: ColumnDef<Order>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Total" />
     ),
-    cell: ({ row }) => {
-      const total = parseFloat(row.getValue("total"));
-      return (
-        <span className="font-medium">
-          ${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-        </span>
-      );
-    },
+    cell: ({ row }) => (
+      <span className="font-medium">
+        {formatPrice(parseFloat(row.getValue("total")))}
+      </span>
+    ),
   },
   {
     accessorKey: "status",
@@ -108,6 +100,13 @@ const columns: ColumnDef<Order>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
+  },
+  {
+    accessorKey: "paymentStatus",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Payment" />
+    ),
+    cell: ({ row }) => <StatusBadge status={row.getValue("paymentStatus")} />,
   },
   {
     id: "actions",
@@ -126,32 +125,87 @@ const columns: ColumnDef<Order>[] = [
 // --- Page ---
 
 export default function OrdersPage() {
+  const [orders, setOrders] = React.useState<Order[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState("all");
   const [dateFrom, setDateFrom] = React.useState("");
   const [dateTo, setDateTo] = React.useState("");
+  const [counts, setCounts] = React.useState({
+    all: 0,
+    PENDING: 0,
+    CONFIRMED: 0,
+    PROCESSING: 0,
+    SHIPPED: 0,
+    DELIVERED: 0,
+    CANCELLED: 0,
+  });
 
-  const filteredOrders = React.useMemo(() => {
-    let result = orders;
-    if (activeTab !== "all") {
-      result = result.filter((o) => o.status === activeTab);
+  const fetchOrders = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "100");
+      if (activeTab !== "all") params.set("status", activeTab);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+
+      const res = await fetch(`/api/admin/orders?${params}`);
+      if (!res.ok) {
+        setOrders([]);
+        return;
+      }
+      const data = await res.json();
+      const mapped = (data.data || []).map((o: {
+        id: string;
+        orderNumber: string;
+        email: string;
+        status: string;
+        paymentStatus: string;
+        total: number;
+        createdAt: string;
+        user?: { firstName: string; lastName: string; email: string };
+        _count?: { items: number };
+      }) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customer: o.user ? `${o.user.firstName} ${o.user.lastName}` : o.email,
+        email: o.user?.email || o.email,
+        date: o.createdAt,
+        items: o._count?.items || 0,
+        total: Number(o.total),
+        status: o.status,
+        paymentStatus: o.paymentStatus,
+      }));
+      setOrders(mapped);
+
+      // Fetch counts for all statuses
+      if (activeTab === "all") {
+        setCounts((prev) => ({ ...prev, all: data.pagination?.total || mapped.length }));
+      }
+    } catch {
+      console.error("Failed to fetch orders");
+    } finally {
+      setLoading(false);
     }
-    if (dateFrom) {
-      result = result.filter((o) => o.date >= dateFrom);
-    }
-    if (dateTo) {
-      result = result.filter((o) => o.date <= dateTo);
-    }
-    return result;
   }, [activeTab, dateFrom, dateTo]);
 
-  const counts = React.useMemo(() => ({
-    all: orders.length,
-    pending: orders.filter((o) => o.status === "pending").length,
-    processing: orders.filter((o) => o.status === "processing").length,
-    shipped: orders.filter((o) => o.status === "shipped").length,
-    delivered: orders.filter((o) => o.status === "delivered").length,
-    cancelled: orders.filter((o) => o.status === "cancelled").length,
-  }), []);
+  // Fetch all counts on mount
+  React.useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const res = await fetch("/api/admin/orders?limit=1");
+        if (res.ok) {
+          const data = await res.json();
+          setCounts((prev) => ({ ...prev, all: data.pagination?.total || 0 }));
+        }
+      } catch { /* ignore */ }
+    }
+    fetchCounts();
+  }, []);
+
+  React.useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   return (
     <div className="space-y-6">
@@ -163,11 +217,11 @@ export default function OrdersPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({counts.pending})</TabsTrigger>
-          <TabsTrigger value="processing">Processing ({counts.processing})</TabsTrigger>
-          <TabsTrigger value="shipped">Shipped ({counts.shipped})</TabsTrigger>
-          <TabsTrigger value="delivered">Delivered ({counts.delivered})</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled ({counts.cancelled})</TabsTrigger>
+          <TabsTrigger value="PENDING">Pending</TabsTrigger>
+          <TabsTrigger value="PROCESSING">Processing</TabsTrigger>
+          <TabsTrigger value="SHIPPED">Shipped</TabsTrigger>
+          <TabsTrigger value="DELIVERED">Delivered</TabsTrigger>
+          <TabsTrigger value="CANCELLED">Cancelled</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -205,12 +259,18 @@ export default function OrdersPage() {
         )}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filteredOrders}
-        searchKey="id"
-        searchPlaceholder="Search by order # or customer..."
-      />
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={orders}
+          searchKey="orderNumber"
+          searchPlaceholder="Search by order # or customer..."
+        />
+      )}
     </div>
   );
 }

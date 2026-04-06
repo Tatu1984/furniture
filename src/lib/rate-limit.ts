@@ -27,8 +27,8 @@ type RateLimitEntry = {
 // ---------------------------------------------------------------------------
 
 export const RATE_LIMITS = {
-  /** Login / register / password reset: 5 requests per 15 minutes */
-  AUTH: { maxRequests: 5, windowMs: 15 * 60 * 1000 } satisfies RateLimitConfig,
+  /** Login / register / password reset: 20 requests per 15 minutes */
+  AUTH: { maxRequests: 20, windowMs: 15 * 60 * 1000 } satisfies RateLimitConfig,
 
   /** Search API: 60 requests per minute */
   SEARCH: { maxRequests: 60, windowMs: 60 * 1000 } satisfies RateLimitConfig,

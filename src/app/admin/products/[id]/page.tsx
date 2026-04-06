@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -94,86 +95,12 @@ const productSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
-// --- Mock Data ---
+// --- Types ---
 
-const mockProductData: Record<string, ProductFormValues & { images: string[] }> = {
-  "1": {
-    name: "Scandinavian Oak Dining Table",
-    slug: "scandinavian-oak-dining-table",
-    sku: "SODT-2847",
-    shortDescription:
-      "Timeless Scandinavian design meets solid European oak craftsmanship. Seats 6 comfortably with a natural matte finish.",
-    fullDescription:
-      "Crafted from solid European oak sourced from sustainably managed forests, this dining table embodies the clean lines and functional elegance of Scandinavian design. The tapered legs provide a light, airy aesthetic while maintaining exceptional stability.\n\nThe natural matte finish showcases the beautiful wood grain, allowing each table to have its own unique character. Seats 6 comfortably, with extension options available for larger gatherings.\n\nFeatures:\n- Solid European oak construction\n- Natural matte finish\n- Tapered leg design\n- Seats 6 comfortably\n- Available in 3 sizes and 3 finishes\n- Easy assembly with included hardware",
-    price: 1299.99,
-    compareAtPrice: 1599.99,
-    costPerItem: 480,
-    stockQuantity: 45,
-    lowStockThreshold: 10,
-    stockStatus: "in_stock",
-    continueSelling: false,
-    trackQuantity: true,
-    requiresShipping: true,
-    weight: 42.5,
-    length: 180,
-    width: 90,
-    height: 75,
-    shippingClass: "white_glove",
-    status: "published",
-    visibility: "visible",
-    productType: "variable",
-    category: "dining",
-    tags: ["scandinavian", "oak", "dining", "natural wood", "minimalist", "sustainable"],
-    featured: true,
-    bestseller: true,
-    metaTitle: "Scandinavian Oak Dining Table | FSOW Furniture",
-    metaDescription:
-      "Premium solid oak dining table with Scandinavian design. Seats 6 comfortably. Natural matte finish. Free shipping on orders over $500.",
-    variants: [
-      { optionName: "Size", values: "4 Seater, 6 Seater, 8 Seater" },
-      { optionName: "Finish", values: "Natural, Walnut, White Oak" },
-    ],
-    images: [
-      "Table - Front View",
-      "Table - Angle View",
-      "Table - Detail Close-up",
-    ],
-  },
-};
-
-const defaultProduct: ProductFormValues & { images: string[] } = {
-  name: "Sample Product",
-  slug: "sample-product",
-  sku: "SP-0001",
-  shortDescription: "This is a sample product for demonstration purposes.",
-  fullDescription:
-    "A detailed description of this sample product for the FSOW furniture store.",
-  price: 499.99,
-  compareAtPrice: 599.99,
-  costPerItem: 200,
-  stockQuantity: 20,
-  lowStockThreshold: 5,
-  stockStatus: "in_stock",
-  continueSelling: false,
-  trackQuantity: true,
-  requiresShipping: true,
-  weight: 15,
-  length: 60,
-  width: 60,
-  height: 45,
-  shippingClass: "standard",
-  status: "published",
-  visibility: "visible",
-  productType: "simple",
-  category: "living_room",
-  tags: ["sample", "furniture"],
-  featured: false,
-  bestseller: false,
-  metaTitle: "Sample Product | FSOW Furniture",
-  metaDescription: "A sample product for the FSOW furniture store.",
-  variants: [{ optionName: "Color", values: "Natural, Walnut, Black" }],
-  images: ["Product Image 1"],
-};
+interface Category {
+  id: string;
+  name: string;
+}
 
 // --- Helpers ---
 
@@ -198,51 +125,125 @@ function generateSKU(name: string) {
 
 export default function EditProductPage() {
   const params = useParams();
+  const router = useRouter();
   const productId = params.id as string;
-  const productData = mockProductData[productId] || defaultProduct;
 
   const [tagInput, setTagInput] = React.useState("");
-  const [mockImages, setMockImages] = React.useState<string[]>(
-    productData.images
-  );
+  const [mockImages, setMockImages] = React.useState<string[]>([]);
   const [activeTab, setActiveTab] = React.useState("general");
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [productName, setProductName] = React.useState("");
+  const [categories, setCategories] = React.useState<Category[]>([]);
 
   const form = useForm<ProductFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(productSchema) as any,
     defaultValues: {
-      name: productData.name,
-      slug: productData.slug,
-      sku: productData.sku,
-      shortDescription: productData.shortDescription,
-      fullDescription: productData.fullDescription,
-      price: productData.price,
-      compareAtPrice: productData.compareAtPrice,
-      costPerItem: productData.costPerItem,
-      stockQuantity: productData.stockQuantity,
-      lowStockThreshold: productData.lowStockThreshold,
-      stockStatus: productData.stockStatus,
-      continueSelling: productData.continueSelling,
-      trackQuantity: productData.trackQuantity,
-      requiresShipping: productData.requiresShipping,
-      weight: productData.weight,
-      length: productData.length,
-      width: productData.width,
-      height: productData.height,
-      shippingClass: productData.shippingClass,
-      status: productData.status,
-      visibility: productData.visibility,
-      productType: productData.productType,
-      category: productData.category,
-      tags: productData.tags,
-      featured: productData.featured,
-      bestseller: productData.bestseller,
-      metaTitle: productData.metaTitle,
-      metaDescription: productData.metaDescription,
-      variants: productData.variants,
+      name: "",
+      slug: "",
+      sku: "",
+      shortDescription: "",
+      fullDescription: "",
+      price: 0,
+      compareAtPrice: undefined,
+      costPerItem: undefined,
+      stockQuantity: 0,
+      lowStockThreshold: 5,
+      stockStatus: "in_stock",
+      continueSelling: false,
+      trackQuantity: true,
+      requiresShipping: true,
+      weight: undefined,
+      length: undefined,
+      width: undefined,
+      height: undefined,
+      shippingClass: "standard",
+      status: "draft",
+      visibility: "visible",
+      productType: "simple",
+      category: "",
+      tags: [],
+      featured: false,
+      bestseller: false,
+      metaTitle: "",
+      metaDescription: "",
+      variants: [],
     },
   });
+
+  // Fetch product data and categories on mount
+  React.useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [productRes, categoriesRes] = await Promise.all([
+          fetch(`/api/admin/products/${productId}`),
+          fetch("/api/admin/categories"),
+        ]);
+
+        if (!productRes.ok) {
+          throw new Error("Failed to fetch product");
+        }
+
+        const productJson = await productRes.json();
+        const product = productJson.data;
+
+        setProductName(product.name);
+        setMockImages(
+          product.images?.map((img: { url: string }) => img.url) || []
+        );
+
+        // Map API fields to form fields, converting uppercase enums to lowercase
+        form.reset({
+          name: product.name || "",
+          slug: product.slug || "",
+          sku: product.sku || "",
+          shortDescription: product.shortDescription || "",
+          fullDescription: product.description || "",
+          price: product.price || 0,
+          compareAtPrice: product.compareAtPrice ?? undefined,
+          costPerItem: product.costPerItem ?? undefined,
+          stockQuantity: product.stockQuantity || 0,
+          lowStockThreshold: product.lowStockThreshold || 5,
+          stockStatus: (product.stockStatus || "IN_STOCK").toLowerCase() as ProductFormValues["stockStatus"],
+          continueSelling: product.allowBackorders || false,
+          trackQuantity: product.manageStock ?? true,
+          requiresShipping: product.requiresShipping ?? true,
+          weight: product.weight ?? undefined,
+          length: product.depth ?? undefined,
+          width: product.width ?? undefined,
+          height: product.height ?? undefined,
+          shippingClass: "standard",
+          status: (product.status || "DRAFT").toLowerCase() as ProductFormValues["status"],
+          visibility: (product.visibility || "VISIBLE").toLowerCase() as ProductFormValues["visibility"],
+          productType: (product.type || "SIMPLE").toLowerCase() as ProductFormValues["productType"],
+          category: product.categoryId || "",
+          tags: product.tags || [],
+          featured: product.isFeatured || false,
+          bestseller: product.isBestseller || false,
+          metaTitle: product.metaTitle || "",
+          metaDescription: product.metaDescription || "",
+          variants: [],
+        });
+
+        if (categoriesRes.ok) {
+          const categoriesJson = await categoriesRes.json();
+          setCategories(categoriesJson.data || categoriesJson || []);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load product");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [productId, form]);
 
   const {
     fields: variantFields,
@@ -301,8 +302,56 @@ export default function EditProductPage() {
     return combos;
   }, [variants]);
 
-  function onSubmit(data: ProductFormValues) {
-    console.log("Updated product data:", data);
+  async function onSubmit(data: ProductFormValues) {
+    setSaving(true);
+    try {
+      const payload = {
+        name: data.name,
+        slug: data.slug,
+        sku: data.sku || undefined,
+        shortDescription: data.shortDescription || undefined,
+        description: data.fullDescription || undefined,
+        price: data.price,
+        compareAtPrice: data.compareAtPrice || null,
+        costPerItem: data.costPerItem || null,
+        stockQuantity: data.stockQuantity || 0,
+        lowStockThreshold: data.lowStockThreshold || 5,
+        stockStatus: data.stockStatus.toUpperCase(),
+        status: data.status.toUpperCase(),
+        visibility: data.visibility.toUpperCase(),
+        type: data.productType.toUpperCase(),
+        categoryId: data.category,
+        tags: data.tags,
+        isFeatured: data.featured,
+        isBestseller: data.bestseller,
+        metaTitle: data.metaTitle || undefined,
+        metaDescription: data.metaDescription || undefined,
+        weight: data.weight || null,
+        width: data.width || null,
+        height: data.height || null,
+        depth: data.length || null,
+        manageStock: data.trackQuantity,
+        allowBackorders: data.continueSelling,
+        requiresShipping: data.requiresShipping,
+      };
+
+      const res = await fetch(`/api/admin/products/${productId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to update product");
+      }
+
+      toast.success("Product updated successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update product");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleAddTag() {
@@ -337,14 +386,56 @@ export default function EditProductPage() {
     }
   }
 
-  function handleDelete() {
-    console.log("Deleting product:", productId);
-    setShowDeleteDialog(false);
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/products/${productId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to delete product");
+      }
+
+      toast.success("Product deleted successfully");
+      setShowDeleteDialog(false);
+      router.push("/admin/products");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete product");
+      setShowDeleteDialog(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" asChild>
+            <Link href="/admin/products">Back to Products</Link>
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Edit Product" description={productData.name}>
+      <PageHeader title="Edit Product" description={productName}>
         <Button variant="outline" asChild>
           <Link href="/admin/products">
             <ArrowLeft className="size-4" />
@@ -525,7 +616,7 @@ export default function EditProductPage() {
                               <FormControl>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                    $
+                                    ₹
                                   </span>
                                   <Input
                                     type="number"
@@ -551,7 +642,7 @@ export default function EditProductPage() {
                               <FormControl>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                    $
+                                    ₹
                                   </span>
                                   <Input
                                     type="number"
@@ -581,7 +672,7 @@ export default function EditProductPage() {
                               <FormControl>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                    $
+                                    ₹
                                   </span>
                                   <Input
                                     type="number"
@@ -616,7 +707,7 @@ export default function EditProductPage() {
                             <div>
                               <p className="text-xs text-green-600">Profit</p>
                               <p className="text-lg font-semibold text-green-800">
-                                ${profitMargin.profit.toFixed(2)}
+                                ₹{profitMargin.profit.toFixed(2)}
                               </p>
                             </div>
                             <div>
@@ -1055,7 +1146,7 @@ export default function EditProductPage() {
                                     <td className="p-3">
                                       <div className="relative">
                                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-                                          $
+                                          ₹
                                         </span>
                                         <Input
                                           type="number"
@@ -1315,12 +1406,11 @@ export default function EditProductPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="living_room">Living Room</SelectItem>
-                            <SelectItem value="bedroom">Bedroom</SelectItem>
-                            <SelectItem value="dining">Dining</SelectItem>
-                            <SelectItem value="office">Office</SelectItem>
-                            <SelectItem value="outdoor">Outdoor</SelectItem>
-                            <SelectItem value="decor">Decor</SelectItem>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -1480,9 +1570,9 @@ export default function EditProductPage() {
 
               {/* Actions */}
               <div className="space-y-2">
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={saving}>
                   <Save className="size-4" />
-                  Update Product
+                  {saving ? "Saving..." : "Update Product"}
                 </Button>
                 <Button
                   type="button"
@@ -1503,7 +1593,7 @@ export default function EditProductPage() {
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
         title="Delete Product"
-        description={`Are you sure you want to delete "${productData.name}"? This action cannot be undone and will remove all associated data including variants, images, and order history references.`}
+        description={`Are you sure you want to delete "${productName}"? This action cannot be undone and will remove all associated data including variants, images, and order history references.`}
         confirmLabel="Delete Product"
         cancelLabel="Cancel"
         onConfirm={handleDelete}

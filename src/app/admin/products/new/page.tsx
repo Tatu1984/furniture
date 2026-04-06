@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -11,6 +13,7 @@ import {
   Upload,
   X,
   ArrowLeft,
+  Loader2,
   Package,
   Globe,
   Star,
@@ -113,9 +116,12 @@ function generateSKU(name: string) {
 // --- Component ---
 
 export default function NewProductPage() {
+  const router = useRouter();
   const [tagInput, setTagInput] = React.useState("");
   const [mockImages, setMockImages] = React.useState<string[]>([]);
   const [activeTab, setActiveTab] = React.useState("general");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]);
 
   const form = useForm<ProductFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -178,6 +184,21 @@ export default function NewProductPage() {
     }
   }, [watchName, form]);
 
+  React.useEffect(() => {
+    fetch("/api/admin/categories")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCategories(data);
+        } else if (data.categories) {
+          setCategories(data.categories);
+        }
+      })
+      .catch(() => {
+        // silently fail – the hardcoded options will remain as fallback
+      });
+  }, []);
+
   // Calculate profit margin
   const profitMargin = React.useMemo(() => {
     if (watchPrice && watchCost && watchPrice > 0 && watchCost > 0) {
@@ -216,8 +237,86 @@ export default function NewProductPage() {
     return combos;
   }, [variants]);
 
-  function onSubmit(data: ProductFormValues) {
-    console.log("Product data:", data);
+  async function onSubmit(data: ProductFormValues) {
+    setIsSubmitting(true);
+    try {
+      const stockStatusMap: Record<string, string> = {
+        in_stock: "IN_STOCK",
+        low_stock: "LOW_STOCK",
+        out_of_stock: "OUT_OF_STOCK",
+        on_backorder: "ON_BACKORDER",
+      };
+      const statusMap: Record<string, string> = {
+        draft: "DRAFT",
+        published: "PUBLISHED",
+        archived: "ARCHIVED",
+      };
+      const visibilityMap: Record<string, string> = {
+        visible: "VISIBLE",
+        catalog_only: "CATALOG",
+        search_only: "SEARCH",
+        hidden: "HIDDEN",
+      };
+      const typeMap: Record<string, string> = {
+        simple: "SIMPLE",
+        variable: "VARIABLE",
+        grouped: "GROUPED",
+        virtual: "VIRTUAL",
+        downloadable: "DOWNLOADABLE",
+      };
+
+      const body = {
+        name: data.name,
+        slug: data.slug,
+        sku: data.sku || "",
+        shortDescription: data.shortDescription || "",
+        description: data.fullDescription || "",
+        price: data.price,
+        compareAtPrice: data.compareAtPrice ?? null,
+        costPerItem: data.costPerItem ?? null,
+        stockQuantity: data.stockQuantity ?? 0,
+        lowStockThreshold: data.lowStockThreshold ?? 5,
+        stockStatus: stockStatusMap[data.stockStatus] || "IN_STOCK",
+        status: statusMap[data.status] || "DRAFT",
+        visibility: visibilityMap[data.visibility] || "VISIBLE",
+        type: typeMap[data.productType] || "SIMPLE",
+        categoryId: data.category,
+        tags: data.tags,
+        isFeatured: data.featured,
+        isBestseller: data.bestseller,
+        metaTitle: data.metaTitle || "",
+        metaDescription: data.metaDescription || "",
+        weight: data.weight ?? null,
+        width: data.width ?? null,
+        height: data.height ?? null,
+        depth: data.length ?? null,
+        manageStock: data.trackQuantity,
+        allowBackorders: data.continueSelling,
+        requiresShipping: data.requiresShipping,
+        assemblyRequired: false,
+        shippingClassId: data.shippingClass || null,
+      };
+
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast.error(result.error || "Failed to create product");
+        return;
+      }
+
+      toast.success("Product created!");
+      router.push("/admin/products");
+    } catch {
+      toast.error("Failed to create product");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleAddTag() {
@@ -417,7 +516,7 @@ export default function NewProductPage() {
                               <FormControl>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                    $
+                                    ₹
                                   </span>
                                   <Input
                                     type="number"
@@ -443,7 +542,7 @@ export default function NewProductPage() {
                               <FormControl>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                    $
+                                    ₹
                                   </span>
                                   <Input
                                     type="number"
@@ -473,7 +572,7 @@ export default function NewProductPage() {
                               <FormControl>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                    $
+                                    ₹
                                   </span>
                                   <Input
                                     type="number"
@@ -508,7 +607,7 @@ export default function NewProductPage() {
                             <div>
                               <p className="text-xs text-green-600">Profit</p>
                               <p className="text-lg font-semibold text-green-800">
-                                ${profitMargin.profit.toFixed(2)}
+                                ₹{profitMargin.profit.toFixed(2)}
                               </p>
                             </div>
                             <div>
@@ -947,7 +1046,7 @@ export default function NewProductPage() {
                                     <td className="p-3">
                                       <div className="relative">
                                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-                                          $
+                                          ₹
                                         </span>
                                         <Input
                                           type="number"
@@ -1201,12 +1300,22 @@ export default function NewProductPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="living_room">Living Room</SelectItem>
-                            <SelectItem value="bedroom">Bedroom</SelectItem>
-                            <SelectItem value="dining">Dining</SelectItem>
-                            <SelectItem value="office">Office</SelectItem>
-                            <SelectItem value="outdoor">Outdoor</SelectItem>
-                            <SelectItem value="decor">Decor</SelectItem>
+                            {categories.length > 0 ? (
+                              categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <SelectItem value="living_room">Living Room</SelectItem>
+                                <SelectItem value="bedroom">Bedroom</SelectItem>
+                                <SelectItem value="dining">Dining</SelectItem>
+                                <SelectItem value="office">Office</SelectItem>
+                                <SelectItem value="outdoor">Outdoor</SelectItem>
+                                <SelectItem value="decor">Decor</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -1366,9 +1475,13 @@ export default function NewProductPage() {
 
               {/* Actions */}
               <div className="space-y-2">
-                <Button type="submit" className="w-full">
-                  <Package className="size-4" />
-                  Save Product
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Package className="size-4" />
+                  )}
+                  {isSubmitting ? "Saving..." : "Save Product"}
                 </Button>
               </div>
             </div>

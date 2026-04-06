@@ -1,86 +1,131 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type MockUser = {
+export type User = {
   id: string;
-  name: string;
   email: string;
-  avatar: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  role: string;
+  status: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  avatar?: string | null;
 };
 
 type AuthState = {
-  user: MockUser | null;
+  user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
 };
 
 type AuthActions = {
-  login: (email: string) => void;
-  logout: () => void;
-  updateProfile: (updates: Partial<Pick<MockUser, "name" | "avatar">>) => void;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  register: (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  fetchUser: () => Promise<void>;
 };
 
 export type AuthStore = AuthState & AuthActions;
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Generate a deterministic mock user from an email address.
- * This keeps the demo self-contained without a real auth backend.
- */
-function createMockUser(email: string): MockUser {
-  const name = email
-    .split("@")[0]
-    .replace(/[._-]/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-
-  return {
-    id: `user_${btoa(email).replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}`,
-    name,
-    email,
-    avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
-export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set, get) => ({
-      // -- state ---------------------------------------------------------------
-      user: null,
-      isAuthenticated: false,
+export const useAuthStore = create<AuthStore>()((set) => ({
+  // -- state -----------------------------------------------------------------
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
 
-      // -- actions -------------------------------------------------------------
-      login: (email) => {
-        const user = createMockUser(email);
-        set({ user, isAuthenticated: true });
-      },
+  // -- actions ---------------------------------------------------------------
+  login: async (email, password) => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      logout: () => {
-        set({ user: null, isAuthenticated: false });
-      },
+      const data = await res.json();
 
-      updateProfile: (updates) => {
-        const current = get().user;
-        if (!current) return;
+      if (!res.ok) {
+        return { success: false, error: data.error || "Login failed" };
+      }
 
-        set({
-          user: { ...current, ...updates },
-        });
-      },
-    }),
-    {
-      name: "fsow-auth",
-    },
-  ),
-);
+      // Fetch full user profile from cookie-authenticated endpoint
+      const meRes = await fetch("/api/auth/me");
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        set({ user: meData.user, isAuthenticated: true });
+      }
+
+      return { success: true };
+    } catch {
+      return { success: false, error: "Network error. Please try again." };
+    }
+  },
+
+  register: async (data) => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok) {
+        return { success: false, error: resData.error || "Registration failed" };
+      }
+
+      // Fetch full user profile
+      const meRes = await fetch("/api/auth/me");
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        set({ user: meData.user, isAuthenticated: true });
+      }
+
+      return { success: true };
+    } catch {
+      return { success: false, error: "Network error. Please try again." };
+    }
+  },
+
+  logout: async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      set({ user: null, isAuthenticated: false });
+    }
+  },
+
+  fetchUser: async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        set({ user: data.user, isAuthenticated: true, isLoading: false });
+      } else {
+        set({ user: null, isAuthenticated: false, isLoading: false });
+      }
+    } catch {
+      set({ user: null, isAuthenticated: false, isLoading: false });
+    }
+  },
+}));

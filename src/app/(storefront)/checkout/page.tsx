@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "react-hook-form";
@@ -11,15 +12,17 @@ import {
   Package,
   Truck,
   Zap,
-  CreditCard,
   ChevronRight,
   ChevronLeft,
   Check,
   ShoppingBag,
   Lock,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { useCartStore } from "@/stores/cart-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,21 +59,11 @@ const shippingSchema = z.object({
   apt: z.string().optional(),
   city: z.string().min(1, "City is required"),
   state: z.string().min(1, "State is required"),
-  zip: z.string().min(5, "Zip code must be at least 5 digits"),
+  zip: z.string().min(6, "PIN code must be 6 digits").max(6, "PIN code must be 6 digits"),
   country: z.string().min(1, "Country is required"),
 });
 
-const paymentSchema = z.object({
-  cardNumber: z.string().min(16, "Card number must be 16 digits"),
-  cardName: z.string().min(1, "Cardholder name is required"),
-  expiry: z
-    .string()
-    .regex(/^(0[1-9]|1[0-2])\/\d{2}$/, "Expiry must be in MM/YY format"),
-  cvv: z.string().min(3, "CVV must be at least 3 digits"),
-});
-
 type ShippingFormValues = z.infer<typeof shippingSchema>;
-type PaymentFormValues = z.infer<typeof paymentSchema>;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -79,8 +72,7 @@ type PaymentFormValues = z.infer<typeof paymentSchema>;
 const steps = [
   { label: "Shipping", icon: Package },
   { label: "Method", icon: Truck },
-  { label: "Payment", icon: CreditCard },
-  { label: "Review", icon: Check },
+  { label: "Review & Pay", icon: Lock },
 ] as const;
 
 const shippingMethods = [
@@ -94,25 +86,28 @@ const shippingMethods = [
   {
     id: "express",
     name: "Express Shipping",
-    price: 14.99,
+    price: 999,
     duration: "2-3 business days",
     icon: Truck,
   },
   {
     id: "nextday",
     name: "Next Day Delivery",
-    price: 29.99,
+    price: 1999,
     duration: "1 business day",
     icon: Zap,
   },
 ] as const;
 
-const US_STATES = [
-  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
-  "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
-  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
-  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
-  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
+const INDIAN_STATES = [
+  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh",
+  "Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand",
+  "Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur",
+  "Meghalaya","Mizoram","Nagaland","Odisha","Punjab",
+  "Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
+  "Uttar Pradesh","Uttarakhand","West Bengal",
+  "Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry",
 ];
 
 // ---------------------------------------------------------------------------
@@ -120,14 +115,10 @@ const US_STATES = [
 // ---------------------------------------------------------------------------
 
 function formatPrice(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
   }).format(value);
-}
-
-function maskCardNumber(num: string) {
-  return "**** **** **** " + num.replace(/\s/g, "").slice(-4);
 }
 
 // ---------------------------------------------------------------------------
@@ -261,7 +252,7 @@ function ShippingStep({
             <FormItem>
               <FormLabel>Phone</FormLabel>
               <FormControl>
-                <Input type="tel" placeholder="(555) 123-4567" {...field} />
+                <Input type="tel" placeholder="+91 98765 43210" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -289,13 +280,13 @@ function ShippingStep({
         render={({ field }) => (
           <FormItem>
             <FormLabel>
-              Apt / Suite{" "}
+              Apt / Suite / Floor{" "}
               <span className="text-muted-foreground font-normal">
                 (optional)
               </span>
             </FormLabel>
             <FormControl>
-              <Input placeholder="Apt 4B" {...field} />
+              <Input placeholder="Flat 4B" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -310,7 +301,7 @@ function ShippingStep({
             <FormItem>
               <FormLabel>City</FormLabel>
               <FormControl>
-                <Input placeholder="New York" {...field} />
+                <Input placeholder="Mumbai" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -329,7 +320,7 @@ function ShippingStep({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {US_STATES.map((st) => (
+                  {INDIAN_STATES.map((st) => (
                     <SelectItem key={st} value={st}>
                       {st}
                     </SelectItem>
@@ -345,9 +336,9 @@ function ShippingStep({
           name="zip"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Zip Code</FormLabel>
+              <FormLabel>PIN Code</FormLabel>
               <FormControl>
-                <Input placeholder="10001" {...field} />
+                <Input placeholder="400001" maxLength={6} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -368,8 +359,7 @@ function ShippingStep({
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="US">United States</SelectItem>
-                <SelectItem value="CA">Canada</SelectItem>
+                <SelectItem value="IN">India</SelectItem>
               </SelectContent>
             </Select>
             <FormMessage />
@@ -431,144 +421,24 @@ function ShippingMethodStep({
 }
 
 // ---------------------------------------------------------------------------
-// Step 3: Payment
-// ---------------------------------------------------------------------------
-
-function PaymentStep({
-  form,
-}: {
-  form: ReturnType<typeof useForm<PaymentFormValues>>;
-}) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Payment Information</h2>
-        <p className="text-sm text-muted-foreground">
-          Enter your card details. This is a demo — no real charges will be
-          made.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-        <Lock className="size-4" />
-        <span>Your payment information is encrypted and secure.</span>
-      </div>
-
-      <div className="space-y-4">
-        <FormField
-          control={form.control}
-          name="cardNumber"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Card Number</FormLabel>
-              <FormControl>
-                <div className="relative">
-                  <Input
-                    placeholder="1234 5678 9012 3456"
-                    maxLength={19}
-                    {...field}
-                    onChange={(e) => {
-                      const v = e.target.value
-                        .replace(/\D/g, "")
-                        .replace(/(.{4})/g, "$1 ")
-                        .trim();
-                      field.onChange(v);
-                    }}
-                  />
-                  <div className="absolute right-3 top-1/2 flex -translate-y-1/2 gap-1">
-                    <CreditCard className="size-5 text-muted-foreground" />
-                  </div>
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="cardName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cardholder Name</FormLabel>
-              <FormControl>
-                <Input placeholder="John Doe" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="expiry"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Expiry (MM/YY)</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    {...field}
-                    onChange={(e) => {
-                      let v = e.target.value.replace(/\D/g, "");
-                      if (v.length >= 2) {
-                        v = v.slice(0, 2) + "/" + v.slice(2, 4);
-                      }
-                      field.onChange(v);
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="cvv"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>CVV</FormLabel>
-                <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="***"
-                    maxLength={4}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 4: Review
+// Step 3: Review & Pay
 // ---------------------------------------------------------------------------
 
 function ReviewStep({
   shippingData,
   shippingMethodId,
-  paymentData,
   items,
   subtotal,
   shippingCost,
 }: {
   shippingData: ShippingFormValues;
   shippingMethodId: string;
-  paymentData: PaymentFormValues;
   items: ReturnType<typeof useCartStore.getState>["items"];
   subtotal: number;
   shippingCost: number;
 }) {
   const method = shippingMethods.find((m) => m.id === shippingMethodId);
-  const tax = subtotal * 0.08;
+  const tax = subtotal * 0.18; // GST 18%
   const total = subtotal + shippingCost + tax;
 
   return (
@@ -576,7 +446,7 @@ function ReviewStep({
       <div>
         <h2 className="text-xl font-semibold">Review Your Order</h2>
         <p className="text-sm text-muted-foreground">
-          Please confirm all details before placing your order.
+          Please confirm all details before paying.
         </p>
       </div>
 
@@ -605,19 +475,6 @@ function ReviewStep({
         </h3>
         <p className="font-medium">{method?.name}</p>
         <p className="text-sm text-muted-foreground">{method?.duration}</p>
-      </div>
-
-      {/* Payment */}
-      <div className="rounded-lg border p-4 space-y-1">
-        <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-          Payment
-        </h3>
-        <p className="font-medium">
-          {maskCardNumber(paymentData.cardNumber)}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Expires {paymentData.expiry}
-        </p>
       </div>
 
       {/* Order Items */}
@@ -660,7 +517,7 @@ function ReviewStep({
           <span>{shippingCost === 0 ? "Free" : formatPrice(shippingCost)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Tax</span>
+          <span className="text-muted-foreground">GST (18%)</span>
           <span>{formatPrice(tax)}</span>
         </div>
         <Separator />
@@ -668,6 +525,11 @@ function ReviewStep({
           <span>Total</span>
           <span>{formatPrice(total)}</span>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+        <Lock className="size-4" />
+        <span>You will be redirected to Razorpay's secure payment page.</span>
       </div>
     </div>
   );
@@ -687,7 +549,7 @@ function CartSummary({
   shippingCost: number;
 }) {
   const [isOpen, setIsOpen] = useState(true);
-  const tax = subtotal * 0.08;
+  const tax = subtotal * 0.18;
   const total = subtotal + shippingCost + tax;
 
   return (
@@ -752,7 +614,7 @@ function CartSummary({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
+                  <span className="text-muted-foreground">GST (18%)</span>
                   <span>{formatPrice(tax)}</span>
                 </div>
                 <Separator />
@@ -778,34 +640,34 @@ export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
   const clearCart = useCartStore((s) => s.clearCart);
+  const { isAuthenticated, isLoading: authLoading, user } = useAuthStore();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [shippingMethodId, setShippingMethodId] = useState("standard");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+
+  // Auth gate — redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push("/auth/login?redirect=/checkout");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   // Forms
   const shippingForm = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
+      firstName: user?.firstName || "",
+      lastName: user?.lastName || "",
+      email: user?.email || "",
       phone: "",
       address: "",
       apt: "",
       city: "",
       state: "",
       zip: "",
-      country: "",
-    },
-  });
-
-  const paymentForm = useForm<PaymentFormValues>({
-    resolver: zodResolver(paymentSchema),
-    defaultValues: {
-      cardNumber: "",
-      cardName: "",
-      expiry: "",
-      cvv: "",
+      country: "IN",
     },
   });
 
@@ -814,7 +676,21 @@ export default function CheckoutPage() {
     return method?.price ?? 0;
   }, [shippingMethodId]);
 
-  // Empty cart redirect
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="container mx-auto max-w-7xl px-4 py-16 flex justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Empty cart
   if (items.length === 0) {
     return (
       <div className="container mx-auto max-w-7xl px-4 py-16">
@@ -829,6 +705,95 @@ export default function CheckoutPage() {
     );
   }
 
+  // Handle Razorpay payment
+  const handlePayNow = async () => {
+    if (!razorpayLoaded) {
+      toast.error("Payment system is loading. Please try again.");
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const shippingData = shippingForm.getValues();
+
+      // Step 1: Create Razorpay order via our API
+      const createRes = await fetch("/api/payments/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...shippingData,
+          shippingMethod: shippingMethodId,
+        }),
+      });
+
+      const createData = await createRes.json();
+
+      if (!createRes.ok) {
+        toast.error(createData.error || "Failed to create payment order");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Step 2: Open Razorpay checkout popup
+      const options: RazorpayOptions = {
+        key: createData.keyId,
+        amount: createData.amount,
+        currency: createData.currency,
+        name: "FSOW Furniture",
+        description: "Order Payment",
+        order_id: createData.razorpayOrderId,
+        handler: async (response: RazorpayResponse) => {
+          // Step 3: Verify payment and create order
+          try {
+            const verifyRes = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                addressId: createData.addressId,
+                shippingMethod: shippingMethodId,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+
+            if (verifyRes.ok) {
+              clearCart();
+              router.push(
+                `/checkout/confirmation?orderNumber=${verifyData.order.orderNumber}`
+              );
+            } else {
+              toast.error(verifyData.error || "Payment verification failed");
+            }
+          } catch {
+            toast.error("Payment verification failed. Please contact support.");
+          }
+          setIsProcessing(false);
+        },
+        prefill: {
+          name: `${shippingData.firstName} ${shippingData.lastName}`,
+          email: shippingData.email,
+          contact: shippingData.phone,
+        },
+        theme: { color: "#000000" },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+      setIsProcessing(false);
+    }
+  };
+
   // Navigation handlers
   const handleNext = async () => {
     if (currentStep === 0) {
@@ -836,16 +801,11 @@ export default function CheckoutPage() {
       if (!valid) return;
     }
     if (currentStep === 2) {
-      const valid = await paymentForm.trigger();
-      if (!valid) return;
-    }
-    if (currentStep === 3) {
-      // Place Order
-      clearCart();
-      router.push("/checkout/confirmation");
+      // Pay Now
+      handlePayNow();
       return;
     }
-    setCurrentStep((s) => Math.min(s + 1, 3));
+    setCurrentStep((s) => Math.min(s + 1, 2));
   };
 
   const handleBack = () => {
@@ -853,91 +813,95 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-8 lg:py-12">
-      {/* Stepper */}
-      <div className="mb-10">
-        <Stepper currentStep={currentStep} />
-      </div>
+    <>
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="lazyOnload"
+        onLoad={() => setRazorpayLoaded(true)}
+      />
+      <div className="container mx-auto max-w-7xl px-4 py-8 lg:py-12">
+        {/* Stepper */}
+        <div className="mb-10">
+          <Stepper currentStep={currentStep} />
+        </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Main content */}
-        <div className="lg:col-span-2">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.25 }}
-            >
-              {currentStep === 0 && (
-                <Form {...shippingForm}>
-                  <form>
-                    <ShippingStep form={shippingForm} />
-                  </form>
-                </Form>
-              )}
-              {currentStep === 1 && (
-                <ShippingMethodStep
-                  selected={shippingMethodId}
-                  onSelect={setShippingMethodId}
-                />
-              )}
-              {currentStep === 2 && (
-                <Form {...paymentForm}>
-                  <form>
-                    <PaymentStep form={paymentForm} />
-                  </form>
-                </Form>
-              )}
-              {currentStep === 3 && (
-                <ReviewStep
-                  shippingData={shippingForm.getValues()}
-                  shippingMethodId={shippingMethodId}
-                  paymentData={paymentForm.getValues()}
-                  items={items}
-                  subtotal={subtotal()}
-                  shippingCost={shippingCost}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          {/* Main content */}
+          <div className="lg:col-span-2">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentStep}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25 }}
+              >
+                {currentStep === 0 && (
+                  <Form {...shippingForm}>
+                    <form>
+                      <ShippingStep form={shippingForm} />
+                    </form>
+                  </Form>
+                )}
+                {currentStep === 1 && (
+                  <ShippingMethodStep
+                    selected={shippingMethodId}
+                    onSelect={setShippingMethodId}
+                  />
+                )}
+                {currentStep === 2 && (
+                  <ReviewStep
+                    shippingData={shippingForm.getValues()}
+                    shippingMethodId={shippingMethodId}
+                    items={items}
+                    subtotal={subtotal()}
+                    shippingCost={shippingCost}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
 
-          {/* Navigation buttons */}
-          <div className="mt-8 flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 0}
-            >
-              <ChevronLeft className="mr-1 size-4" />
-              Back
-            </Button>
-            <Button onClick={handleNext}>
-              {currentStep === 3 ? (
-                <>
-                  <Lock className="mr-1 size-4" />
-                  Place Order
-                </>
-              ) : (
-                <>
-                  Continue
-                  <ChevronRight className="ml-1 size-4" />
-                </>
-              )}
-            </Button>
+            {/* Navigation buttons */}
+            <div className="mt-8 flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStep === 0}
+              >
+                <ChevronLeft className="mr-1 size-4" />
+                Back
+              </Button>
+              <Button onClick={handleNext} disabled={isProcessing}>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-1 size-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : currentStep === 2 ? (
+                  <>
+                    <Lock className="mr-1 size-4" />
+                    Pay Now
+                  </>
+                ) : (
+                  <>
+                    Continue
+                    <ChevronRight className="ml-1 size-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="order-first lg:order-last lg:sticky lg:top-24 lg:self-start">
+            <CartSummary
+              items={items}
+              subtotal={subtotal()}
+              shippingCost={shippingCost}
+            />
           </div>
         </div>
-
-        {/* Sidebar */}
-        <div className="order-first lg:order-last lg:sticky lg:top-24 lg:self-start">
-          <CartSummary
-            items={items}
-            subtotal={subtotal()}
-            shippingCost={shippingCost}
-          />
-        </div>
       </div>
-    </div>
+    </>
   );
 }

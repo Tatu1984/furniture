@@ -32,21 +32,41 @@ export default function AdminLoginPage() {
 
     setIsLoading(true);
 
-    // Mock authentication - any email/password works
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
 
-    // Set mock admin user in localStorage
-    const mockUser = {
-      id: "admin-1",
-      email: email,
-      name: "Admin User",
-      role: "admin",
-      loginAt: new Date().toISOString(),
-    };
-    localStorage.setItem("fsow-admin-user", JSON.stringify(mockUser));
+      const data = await res.json();
 
-    setIsLoading(false);
-    router.push("/admin");
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        setIsLoading(false);
+        return;
+      }
+
+      // Verify the user has admin privileges
+      const meRes = await fetch("/api/auth/me");
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        const role = meData.user?.role;
+        if (!["ADMIN", "OPS", "EDITOR", "MANAGER"].includes(role)) {
+          setError("You do not have admin access");
+          // Logout the non-admin user
+          await fetch("/api/auth/logout", { method: "POST" });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      setIsLoading(false);
+      router.push("/admin");
+    } catch {
+      setError("Network error. Please try again.");
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -76,7 +96,7 @@ export default function AdminLoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@fsow.com"
+                placeholder="admin@fsow.in"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
@@ -129,15 +149,9 @@ export default function AdminLoginPage() {
               )}
             </Button>
 
-            <div className="text-center">
-              <button
-                type="button"
-                className="text-sm text-[#8B6914] hover:underline"
-                onClick={() => setError("")}
-              >
-                Forgot password?
-              </button>
-            </div>
+            <p className="text-center text-xs text-muted-foreground mt-4">
+              Default: admin@fsow.in / admin@123
+            </p>
           </form>
         </CardContent>
       </Card>

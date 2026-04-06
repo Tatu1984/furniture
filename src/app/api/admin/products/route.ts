@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       price,
       compareAtPrice,
       costPrice,
-      currency = "USD",
+      currency = "INR",
       categoryId,
       tags = [],
       collections = [],

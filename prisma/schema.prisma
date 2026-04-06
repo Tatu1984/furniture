@@ -1515,3 +1515,61 @@ model Showroom {
 
   @@map("showrooms")
 }
+
+// =============================================================================
+// COMPLETED PROJECTS / PORTFOLIO
+// =============================================================================
+
+enum ProjectStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProjectMediaType {
+  IMAGE
+  VIDEO
+}
+
+model CompletedProject {
+  id          String        @id @default(cuid())
+  title       String
+  slug        String        @unique
+  description String?
+  category    String?
+  location    String?
+  clientName  String?
+  completedAt DateTime?
+  status      ProjectStatus @default(DRAFT)
+  isFeatured  Boolean       @default(false)
+  sortOrder   Int           @default(0)
+
+  seoTitle       String?
+  seoDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  media ProjectMedia[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([category])
+  @@map("completed_projects")
+}
+
+model ProjectMedia {
+  id        String           @id @default(cuid())
+  projectId String
+  url       String
+  type      ProjectMediaType @default(IMAGE)
+  caption   String?
+  alt       String           @default("")
+  sortOrder Int              @default(0)
+  isDefault Boolean          @default(false)
+
+  project CompletedProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_media")
+}

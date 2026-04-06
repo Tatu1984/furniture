@@ -24,6 +24,7 @@ type EnvConfig = {
   // Razorpay
   RAZORPAY_KEY_ID: string;
   RAZORPAY_KEY_SECRET: string;
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: string;
 };
 
 function getEnvVar(key: string, fallback?: string): string {
@@ -75,4 +76,5 @@ export const env: EnvConfig = {
 
   RAZORPAY_KEY_ID: getEnvVar("RAZORPAY_KEY_ID"),
   RAZORPAY_KEY_SECRET: getEnvVar("RAZORPAY_KEY_SECRET"),
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: getEnvVar("NEXT_PUBLIC_RAZORPAY_KEY_ID"),
 };
