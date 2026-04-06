@@ -183,7 +183,7 @@ export default function EditProductPage() {
       try {
         const [productRes, categoriesRes] = await Promise.all([
           fetch(`/api/admin/products/${productId}`),
-          fetch("/api/admin/categories"),
+          fetch("/api/admin/categories?flat=true"),
         ]);
 
         if (!productRes.ok) {
@@ -207,7 +207,7 @@ export default function EditProductPage() {
           fullDescription: product.description || "",
           price: product.price || 0,
           compareAtPrice: product.compareAtPrice ?? undefined,
-          costPerItem: product.costPerItem ?? undefined,
+          costPerItem: product.costPrice ?? undefined,
           stockQuantity: product.stockQuantity || 0,
           lowStockThreshold: product.lowStockThreshold || 5,
           stockStatus: (product.stockStatus || "IN_STOCK").toLowerCase() as ProductFormValues["stockStatus"],
@@ -233,7 +233,8 @@ export default function EditProductPage() {
 
         if (categoriesRes.ok) {
           const categoriesJson = await categoriesRes.json();
-          setCategories(categoriesJson.data || categoriesJson || []);
+          const list = categoriesJson?.data ?? (Array.isArray(categoriesJson) ? categoriesJson : []);
+          setCategories(list.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load product");
@@ -305,6 +306,9 @@ export default function EditProductPage() {
   async function onSubmit(data: ProductFormValues) {
     setSaving(true);
     try {
+      const visibilityMap: Record<string, string> = {
+        visible: "VISIBLE", catalog_only: "CATALOG", search_only: "SEARCH", hidden: "HIDDEN",
+      };
       const payload = {
         name: data.name,
         slug: data.slug,
@@ -313,14 +317,14 @@ export default function EditProductPage() {
         description: data.fullDescription || undefined,
         price: data.price,
         compareAtPrice: data.compareAtPrice || null,
-        costPerItem: data.costPerItem || null,
+        costPrice: data.costPerItem || null,
         stockQuantity: data.stockQuantity || 0,
         lowStockThreshold: data.lowStockThreshold || 5,
-        stockStatus: data.stockStatus.toUpperCase(),
+        stockStatus: data.stockStatus.toUpperCase().replace(/ /g, "_"),
         status: data.status.toUpperCase(),
-        visibility: data.visibility.toUpperCase(),
+        visibility: visibilityMap[data.visibility] || data.visibility.toUpperCase(),
         type: data.productType.toUpperCase(),
-        categoryId: data.category,
+        categoryId: data.category || null,
         tags: data.tags,
         isFeatured: data.featured,
         isBestseller: data.bestseller,

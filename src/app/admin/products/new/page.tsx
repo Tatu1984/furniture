@@ -78,7 +78,7 @@ const productSchema = z.object({
   status: z.enum(["draft", "published", "archived"]),
   visibility: z.enum(["visible", "catalog_only", "search_only", "hidden"]),
   productType: z.enum(["simple", "variable", "grouped", "virtual", "downloadable"]),
-  category: z.string().min(1, "Category is required"),
+  category: z.string().optional(),
   tags: z.array(z.string()),
   featured: z.boolean(),
   bestseller: z.boolean(),
@@ -185,14 +185,11 @@ export default function NewProductPage() {
   }, [watchName, form]);
 
   React.useEffect(() => {
-    fetch("/api/admin/categories")
+    fetch("/api/admin/categories?flat=true")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) {
-          setCategories(data);
-        } else if (data.categories) {
-          setCategories(data.categories);
-        }
+        const list = data?.data ?? data?.categories ?? (Array.isArray(data) ? data : []);
+        setCategories(list.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
       })
       .catch(() => {
         // silently fail – the hardcoded options will remain as fallback
@@ -265,22 +262,24 @@ export default function NewProductPage() {
         downloadable: "DOWNLOADABLE",
       };
 
+      const sku = data.sku?.trim() || generateSKU(data.name);
+
       const body = {
         name: data.name,
         slug: data.slug,
-        sku: data.sku || "",
+        sku,
         shortDescription: data.shortDescription || "",
         description: data.fullDescription || "",
         price: data.price,
         compareAtPrice: data.compareAtPrice ?? null,
-        costPerItem: data.costPerItem ?? null,
+        costPrice: data.costPerItem ?? null,
         stockQuantity: data.stockQuantity ?? 0,
         lowStockThreshold: data.lowStockThreshold ?? 5,
         stockStatus: stockStatusMap[data.stockStatus] || "IN_STOCK",
         status: statusMap[data.status] || "DRAFT",
         visibility: visibilityMap[data.visibility] || "VISIBLE",
         type: typeMap[data.productType] || "SIMPLE",
-        categoryId: data.category,
+        categoryId: data.category || null,
         tags: data.tags,
         isFeatured: data.featured,
         isBestseller: data.bestseller,
@@ -294,7 +293,6 @@ export default function NewProductPage() {
         allowBackorders: data.continueSelling,
         requiresShipping: data.requiresShipping,
         assemblyRequired: false,
-        shippingClassId: data.shippingClass || null,
       };
 
       const res = await fetch("/api/admin/products", {

@@ -185,16 +185,22 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!name || !slug || !sku || price === undefined) {
+    if (!name || !slug || price === undefined) {
       return NextResponse.json(
-        { error: "Name, slug, SKU, and price are required" },
+        { error: "Name, slug, and price are required" },
         { status: 400 }
       );
     }
 
+    // Auto-generate SKU if not provided
+    const finalSku = sku || (() => {
+      const initials = name.split(/\s+/).map((w: string) => w.charAt(0).toUpperCase()).join("").slice(0, 4);
+      return `${initials}-${Date.now().toString(36).toUpperCase()}`;
+    })();
+
     // Check for duplicate slug or SKU
     const existing = await prisma.product.findFirst({
-      where: { OR: [{ slug }, { sku }] },
+      where: { OR: [{ slug }, { sku: finalSku }] },
     });
 
     if (existing) {
@@ -213,7 +219,7 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         slug,
-        sku,
+        sku: finalSku,
         description,
         shortDescription,
         type,
