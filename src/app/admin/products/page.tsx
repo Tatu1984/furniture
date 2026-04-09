@@ -76,7 +76,9 @@ type PaginationInfo = {
 // --- Columns ---
 
 function createColumns(
-  onDeleteRequest: (product: Product) => void
+  onDeleteRequest: (product: Product) => void,
+  onDuplicate: (product: Product) => void,
+  onArchive: (product: Product) => void
 ): ColumnDef<Product>[] {
   return [
   {
@@ -216,11 +218,22 @@ function createColumns(
               Edit
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              onDuplicate(row.original);
+            }}
+          >
             <Copy className="size-4" />
             Duplicate
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={row.original.status === "archived"}
+            onSelect={(event) => {
+              event.preventDefault();
+              onArchive(row.original);
+            }}
+          >
             <Archive className="size-4" />
             Archive
           </DropdownMenuItem>
@@ -398,9 +411,51 @@ export default function ProductsPage() {
     }
   }
 
+  const handleDuplicate = React.useCallback(
+    async (product: Product) => {
+      try {
+        const res = await fetch(
+          `/api/admin/products/${product.id}/duplicate`,
+          { method: "POST" }
+        );
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to duplicate product");
+        }
+        toast.success(`Duplicated as "${data?.data?.name ?? "copy"}"`);
+        setRefreshKey((k) => k + 1);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to duplicate product"
+        );
+      }
+    },
+    []
+  );
+
+  const handleArchive = React.useCallback(async (product: Product) => {
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ARCHIVED" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to archive product");
+      }
+      toast.success(`Archived "${product.name}"`);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to archive product"
+      );
+    }
+  }, []);
+
   const columns = React.useMemo(
-    () => createColumns(handleDeleteRequest),
-    [handleDeleteRequest]
+    () => createColumns(handleDeleteRequest, handleDuplicate, handleArchive),
+    [handleDeleteRequest, handleDuplicate, handleArchive]
   );
 
   return (

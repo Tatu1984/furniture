@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   Users as UsersIcon,
@@ -11,6 +12,7 @@ import {
   Plus,
   Search,
   Pencil,
+  Loader2,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/admin/shared/page-header";
@@ -28,8 +30,23 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // --- Types ---
 
-type UserRole = "admin" | "manager" | "staff" | "customer";
-type UserStatus = "pending" | "active" | "suspended";
+type UserRole = "admin" | "manager" | "editor" | "ops";
+type UserStatus = "pending" | "active" | "suspended" | "inactive";
+
+type ApiUser = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  role: "ADMIN" | "MANAGER" | "EDITOR" | "OPS";
+  status: "PENDING" | "ACTIVE" | "SUSPENDED" | "INACTIVE";
+  isActive: boolean;
+  avatar: string | null;
+  emailVerified: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+};
 
 type User = {
   id: string;
@@ -38,48 +55,34 @@ type User = {
   email: string;
   role: UserRole;
   status: UserStatus;
-  orders: number;
   joinDate: string;
-  lastLogin: string;
+  lastLogin: string | null;
   avatar?: string;
 };
+
+function mapApiUser(u: ApiUser): User {
+  return {
+    id: u.id,
+    firstName: u.firstName ?? "",
+    lastName: u.lastName ?? "",
+    email: u.email,
+    role: u.role.toLowerCase() as UserRole,
+    status: u.status.toLowerCase() as UserStatus,
+    joinDate: u.createdAt,
+    lastLogin: u.lastLoginAt,
+    avatar: u.avatar ?? "",
+  };
+}
 
 // --- Role Badge Colors ---
 
 const roleBadgeConfig: Record<UserRole, string> = {
   admin: "bg-purple-100 text-purple-800 border-purple-200",
   manager: "bg-blue-100 text-blue-800 border-blue-200",
-  staff: "bg-cyan-100 text-cyan-800 border-cyan-200",
-  customer: "bg-gray-100 text-gray-800 border-gray-200",
+  editor: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  ops: "bg-amber-100 text-amber-800 border-amber-200",
 };
 
-// --- Mock Data ---
-
-const users: User[] = [
-  { id: "1", firstName: "Sarah", lastName: "Johnson", email: "sarah.johnson@email.com", role: "admin", status: "active", orders: 0, joinDate: "2023-01-15", lastLogin: "2025-12-20T14:30:00Z", avatar: "" },
-  { id: "2", firstName: "Michael", lastName: "Chen", email: "michael.chen@email.com", role: "manager", status: "active", orders: 0, joinDate: "2023-03-22", lastLogin: "2025-12-19T09:15:00Z", avatar: "" },
-  { id: "3", firstName: "Emily", lastName: "Davis", email: "emily.davis@email.com", role: "customer", status: "active", orders: 12, joinDate: "2023-05-10", lastLogin: "2025-12-18T16:45:00Z", avatar: "" },
-  { id: "4", firstName: "James", lastName: "Wilson", email: "james.wilson@email.com", role: "customer", status: "pending", orders: 0, joinDate: "2025-12-15", lastLogin: "2025-12-15T10:00:00Z", avatar: "" },
-  { id: "5", firstName: "Lisa", lastName: "Anderson", email: "lisa.anderson@email.com", role: "staff", status: "active", orders: 0, joinDate: "2023-07-01", lastLogin: "2025-12-20T08:00:00Z", avatar: "" },
-  { id: "6", firstName: "Robert", lastName: "Taylor", email: "robert.taylor@email.com", role: "customer", status: "suspended", orders: 3, joinDate: "2023-06-18", lastLogin: "2025-10-05T12:00:00Z", avatar: "" },
-  { id: "7", firstName: "Amanda", lastName: "Martinez", email: "amanda.martinez@email.com", role: "customer", status: "active", orders: 27, joinDate: "2022-11-03", lastLogin: "2025-12-19T17:30:00Z", avatar: "" },
-  { id: "8", firstName: "David", lastName: "Brown", email: "david.brown@email.com", role: "manager", status: "active", orders: 0, joinDate: "2023-02-14", lastLogin: "2025-12-20T11:45:00Z", avatar: "" },
-  { id: "9", firstName: "Jennifer", lastName: "Lee", email: "jennifer.lee@email.com", role: "customer", status: "active", orders: 8, joinDate: "2023-09-25", lastLogin: "2025-12-17T14:20:00Z", avatar: "" },
-  { id: "10", firstName: "Christopher", lastName: "Garcia", email: "chris.garcia@email.com", role: "customer", status: "pending", orders: 1, joinDate: "2025-12-10", lastLogin: "2025-12-12T09:00:00Z", avatar: "" },
-  { id: "11", firstName: "Michelle", lastName: "Robinson", email: "michelle.robinson@email.com", role: "staff", status: "active", orders: 0, joinDate: "2023-08-15", lastLogin: "2025-12-20T07:30:00Z", avatar: "" },
-  { id: "12", firstName: "Daniel", lastName: "White", email: "daniel.white@email.com", role: "customer", status: "active", orders: 15, joinDate: "2023-04-02", lastLogin: "2025-12-19T20:00:00Z", avatar: "" },
-  { id: "13", firstName: "Ashley", lastName: "Thompson", email: "ashley.thompson@email.com", role: "customer", status: "suspended", orders: 2, joinDate: "2023-10-11", lastLogin: "2025-09-20T10:00:00Z", avatar: "" },
-  { id: "14", firstName: "Kevin", lastName: "Harris", email: "kevin.harris@email.com", role: "customer", status: "active", orders: 5, joinDate: "2024-01-20", lastLogin: "2025-12-18T13:00:00Z", avatar: "" },
-  { id: "15", firstName: "Stephanie", lastName: "Clark", email: "stephanie.clark@email.com", role: "admin", status: "active", orders: 0, joinDate: "2022-06-01", lastLogin: "2025-12-20T15:00:00Z", avatar: "" },
-  { id: "16", firstName: "Brian", lastName: "Lewis", email: "brian.lewis@email.com", role: "customer", status: "active", orders: 19, joinDate: "2023-02-28", lastLogin: "2025-12-20T10:30:00Z", avatar: "" },
-  { id: "17", firstName: "Nicole", lastName: "Walker", email: "nicole.walker@email.com", role: "customer", status: "pending", orders: 0, joinDate: "2025-12-18", lastLogin: "2025-12-18T08:00:00Z", avatar: "" },
-  { id: "18", firstName: "Ryan", lastName: "Hall", email: "ryan.hall@email.com", role: "staff", status: "active", orders: 0, joinDate: "2024-03-10", lastLogin: "2025-12-19T16:00:00Z", avatar: "" },
-  { id: "19", firstName: "Rachel", lastName: "Allen", email: "rachel.allen@email.com", role: "customer", status: "active", orders: 9, joinDate: "2023-11-05", lastLogin: "2025-12-16T12:15:00Z", avatar: "" },
-  { id: "20", firstName: "Thomas", lastName: "Young", email: "thomas.young@email.com", role: "customer", status: "suspended", orders: 1, joinDate: "2024-05-22", lastLogin: "2025-08-14T09:00:00Z", avatar: "" },
-  { id: "21", firstName: "Lauren", lastName: "King", email: "lauren.king@email.com", role: "customer", status: "suspended", orders: 4, joinDate: "2024-02-14", lastLogin: "2025-07-30T11:00:00Z", avatar: "" },
-  { id: "22", firstName: "Jason", lastName: "Wright", email: "jason.wright@email.com", role: "customer", status: "active", orders: 31, joinDate: "2022-09-15", lastLogin: "2025-12-20T09:45:00Z", avatar: "" },
-  { id: "23", firstName: "Megan", lastName: "Scott", email: "megan.scott@email.com", role: "manager", status: "active", orders: 0, joinDate: "2023-07-20", lastLogin: "2025-12-20T13:00:00Z", avatar: "" },
-];
 
 // --- Helpers ---
 
@@ -91,7 +94,8 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatDateTime(dateStr: string): string {
+function formatDateTime(dateStr: string | null): string {
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -99,6 +103,12 @@ function formatDateTime(dateStr: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function initials(u: User) {
+  const f = u.firstName?.[0] ?? "";
+  const l = u.lastName?.[0] ?? "";
+  return (f + l).toUpperCase() || u.email[0]?.toUpperCase() || "?";
 }
 
 // --- Columns ---
@@ -131,22 +141,22 @@ const columns: ColumnDef<User>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="User" />
     ),
-    cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <Avatar size="sm">
-          <AvatarFallback>
-            {row.original.firstName[0]}
-            {row.original.lastName[0]}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="font-medium">
-            {row.original.firstName} {row.original.lastName}
-          </p>
-          <p className="text-sm text-muted-foreground">{row.original.email}</p>
+    cell: ({ row }) => {
+      const name = `${row.original.firstName} ${row.original.lastName}`.trim();
+      return (
+        <div className="flex items-center gap-3">
+          <Avatar size="sm">
+            <AvatarFallback>{initials(row.original)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="font-medium">{name || "(no name)"}</p>
+            <p className="text-sm text-muted-foreground">
+              {row.original.email}
+            </p>
+          </div>
         </div>
-      </div>
-    ),
+      );
+    },
   },
   {
     accessorKey: "role",
@@ -171,13 +181,6 @@ const columns: ColumnDef<User>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  },
-  {
-    accessorKey: "orders",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Orders" />
-    ),
-    cell: ({ row }) => row.original.orders,
   },
   {
     accessorKey: "joinDate",
@@ -215,9 +218,41 @@ const columns: ColumnDef<User>[] = [
 // --- Page ---
 
 export default function UsersPage() {
+  const [users, setUsers] = React.useState<User[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [roleFilter, setRoleFilter] = React.useState<string>("all");
+
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/users?limit=100");
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || "Failed to load users");
+        }
+        const json = await res.json();
+        if (cancelled) return;
+        setUsers((json.data as ApiUser[]).map(mapApiUser));
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(
+            err instanceof Error ? err.message : "Failed to load users",
+          );
+          setUsers([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredUsers = React.useMemo(() => {
     let result = users;
@@ -240,7 +275,7 @@ export default function UsersPage() {
     }
 
     return result;
-  }, [search, statusFilter, roleFilter]);
+  }, [users, search, statusFilter, roleFilter]);
 
   const stats = React.useMemo(
     () => ({
@@ -249,11 +284,11 @@ export default function UsersPage() {
       active: users.filter((u) => u.status === "active").length,
       suspended: users.filter((u) => u.status === "suspended").length,
     }),
-    []
+    [users]
   );
 
   const statusFilters = ["all", "pending", "active", "suspended"] as const;
-  const roleFilters = ["all", "admin", "manager", "staff", "customer"] as const;
+  const roleFilters = ["all", "admin", "manager", "editor", "ops"] as const;
 
   return (
     <div className="space-y-6">
@@ -359,12 +394,19 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filteredUsers}
-        searchKey="user"
-        searchPlaceholder="Search users..."
-      />
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Loading users...</span>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filteredUsers}
+          searchKey="user"
+          searchPlaceholder="Search users..."
+        />
+      )}
     </div>
   );
 }
