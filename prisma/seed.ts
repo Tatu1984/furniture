@@ -143,6 +143,83 @@ async function main() {
     `Main Navigation menu seeded with ${rootCategories.length + 1} items`,
   );
 
+  // ── Helper to seed a starter menu (idempotent) ────────────────────────
+  async function seedStarterMenu(
+    name: string,
+    slug: string,
+    location: "HEADER" | "FOOTER" | "MOBILE" | "SIDEBAR",
+    items: Array<{
+      title: string;
+      url: string;
+      type?: "CUSTOM" | "CATEGORY" | "PAGE";
+      targetId?: string;
+    }>,
+  ) {
+    const menu = await prisma.menu.upsert({
+      where: { slug },
+      update: { name, location },
+      create: { name, slug, location },
+    });
+    await prisma.menuItem.deleteMany({ where: { menuId: menu.id } });
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      await prisma.menuItem.create({
+        data: {
+          menuId: menu.id,
+          title: it.title,
+          url: it.url,
+          type: it.type ?? "CUSTOM",
+          targetId: it.targetId ?? null,
+          sortOrder: i,
+          isActive: true,
+        },
+      });
+    }
+    console.log(`${name} menu seeded with ${items.length} items`);
+  }
+
+  // ── Footer Links (FOOTER) ─────────────────────────────────────────────
+  await seedStarterMenu("Footer Links", "footer-links", "FOOTER", [
+    ...rootCategories.slice(0, 5).map((c) => ({
+      title: c.name,
+      url: `/categories/${c.slug}`,
+      type: "CATEGORY" as const,
+      targetId: c.id,
+    })),
+    { title: "About Us", url: "/about" },
+    { title: "Contact", url: "/contact" },
+    { title: "FAQ", url: "/faq" },
+    { title: "Privacy Policy", url: "/privacy" },
+    { title: "Terms of Service", url: "/terms" },
+  ]);
+
+  // ── Mobile Menu (MOBILE) ──────────────────────────────────────────────
+  await seedStarterMenu("Mobile Menu", "mobile-menu", "MOBILE", [
+    { title: "Shop All", url: "/products" },
+    ...rootCategories.slice(0, 4).map((c) => ({
+      title: c.name,
+      url: `/categories/${c.slug}`,
+      type: "CATEGORY" as const,
+      targetId: c.id,
+    })),
+    { title: "Projects", url: "/projects" },
+    { title: "About", url: "/about" },
+    { title: "Contact", url: "/contact" },
+  ]);
+
+  // ── Sidebar Menu (SIDEBAR) ────────────────────────────────────────────
+  await seedStarterMenu(
+    "Sidebar Menu",
+    "sidebar-menu",
+    "SIDEBAR",
+    rootCategories.map((c) => ({
+      title: c.name,
+      url: `/categories/${c.slug}`,
+      type: "CATEGORY" as const,
+      targetId: c.id,
+    })),
+  );
+
   await (prisma as unknown as { $disconnect: () => Promise<void> }).$disconnect();
 }
 
