@@ -22,16 +22,11 @@ import { SearchCommand } from "@/components/shared/search-command";
 import { cn } from "@/lib/utils";
 import { useScrollDirection } from "@/hooks/use-scroll-direction";
 
-const navLinks = [
-  { label: "Living Room", href: "/categories/living-room" },
-  { label: "Bedroom", href: "/categories/bedroom" },
-  { label: "Dining", href: "/categories/dining" },
-  { label: "Office", href: "/categories/office" },
-  { label: "Projects", href: "/projects" },
-  { label: "Sale", href: "/categories/decor" },
-];
+type NavCategory = { id: string; name: string; slug: string };
 
-export function Header() {
+const STATIC_LINKS = [{ label: "Projects", href: "/projects" }];
+
+export function Header({ categories = [] }: { categories?: NavCategory[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
@@ -41,6 +36,14 @@ export function Header() {
   const toggleCart = useCartStore((s) => s.toggleCart);
   const { user, isAuthenticated } = useAuthStore();
   const logout = useAuthStore((s) => s.logout);
+
+  const navLinks = [
+    ...categories.slice(0, 5).map((c) => ({
+      label: c.name,
+      href: `/categories/${c.slug}`,
+    })),
+    ...STATIC_LINKS,
+  ];
 
   return (
     <header

@@ -242,7 +242,10 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const existing = await prisma.product.findUnique({ where: { id } });
+    const existing = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true, _count: { select: { orderItems: true } } },
+    });
     if (!existing) {
       return NextResponse.json(
         { error: "Product not found" },
@@ -250,14 +253,35 @@ export async function DELETE(
       );
     }
 
-    await prisma.product.delete({ where: { id } });
+    // Order history references the product without ON DELETE CASCADE,
+    // so a hard delete would fail and would also destroy historical data.
+    // Archive instead — preserves orders, hides product from storefront.
+    if (existing._count.orderItems > 0) {
+      const archived = await prisma.product.update({
+        where: { id },
+        data: { status: "ARCHIVED" },
+      });
+      return NextResponse.json({
+        success: true,
+        archived: true,
+        message:
+          "Product has order history and was archived instead of deleted.",
+        product: { id: archived.id, status: archived.status },
+      });
+    }
+
+    // Cart items have no cascade either, but carts are ephemeral —
+    // safe to clear them before removing the product.
+    await prisma.$transaction([
+      prisma.cartItem.deleteMany({ where: { productId: id } }),
+      prisma.product.delete({ where: { id } }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/admin/products/[id] error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete product" },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error ? error.message : "Failed to delete product";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

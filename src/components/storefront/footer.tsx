@@ -2,14 +2,7 @@ import Link from "next/link";
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
-const shopLinks = [
-  { label: "Living Room", href: "/categories/living-room" },
-  { label: "Bedroom", href: "/categories/bedroom" },
-  { label: "Dining", href: "/categories/dining" },
-  { label: "Office", href: "/categories/office" },
-  { label: "Outdoor", href: "/categories/outdoor" },
-  { label: "Sale", href: "/categories/decor" },
-];
+type NavCategory = { id: string; name: string; slug: string };
 
 const supportLinks = [
   { label: "Contact Us", href: "/contact" },
@@ -27,7 +20,12 @@ const companyLinks = [
   { label: "Press", href: "/press" },
 ];
 
-export function Footer() {
+export function Footer({ categories = [] }: { categories?: NavCategory[] }) {
+  const shopLinks = categories.slice(0, 6).map((c) => ({
+    label: c.name,
+    href: `/categories/${c.slug}`,
+  }));
+
   return (
     <footer className="bg-card border-t">
       <div className="container mx-auto px-4 py-12">

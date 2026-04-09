@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 import {
   MoreHorizontal,
   Plus,
@@ -30,6 +31,7 @@ import {
   DataTableColumnHeader,
 } from "@/components/admin/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { formatPrice } from "@/lib/format";
 
 // --- Types ---
@@ -73,7 +75,10 @@ type PaginationInfo = {
 
 // --- Columns ---
 
-const columns: ColumnDef<Product>[] = [
+function createColumns(
+  onDeleteRequest: (product: Product) => void
+): ColumnDef<Product>[] {
+  return [
   {
     id: "select",
     header: ({ table }) => (
@@ -220,7 +225,13 @@ const columns: ColumnDef<Product>[] = [
             Archive
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={(event) => {
+              event.preventDefault();
+              onDeleteRequest(row.original);
+            }}
+          >
             <Trash2 className="size-4" />
             Delete
           </DropdownMenuItem>
@@ -229,7 +240,8 @@ const columns: ColumnDef<Product>[] = [
     ),
     enableSorting: false,
   },
-];
+  ];
+}
 
 // --- Helpers ---
 
@@ -274,6 +286,9 @@ export default function ProductsPage() {
     archived: 0,
   });
   const [loading, setLoading] = React.useState(true);
+  const [deleteTarget, setDeleteTarget] = React.useState<Product | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   // Fetch tab counts once on mount
   React.useEffect(() => {
@@ -343,12 +358,50 @@ export default function ProductsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, pagination.page, pagination.limit]);
+  }, [activeTab, pagination.page, pagination.limit, refreshKey]);
 
   const handleTabChange = React.useCallback((value: string) => {
     setActiveTab(value);
     setPagination((prev) => ({ ...prev, page: 1 }));
   }, []);
+
+  const handleDeleteRequest = React.useCallback((product: Product) => {
+    setDeleteTarget(product);
+  }, []);
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/products/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to delete product");
+      }
+      if (data?.archived) {
+        toast.success(
+          data.message ?? "Product archived (has order history)."
+        );
+      } else {
+        toast.success("Product deleted successfully");
+      }
+      setDeleteTarget(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete product"
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const columns = React.useMemo(
+    () => createColumns(handleDeleteRequest),
+    [handleDeleteRequest]
+  );
 
   return (
     <div className="space-y-6">
@@ -389,6 +442,23 @@ export default function ProductsPage() {
           searchPlaceholder="Search products..."
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+        title="Delete Product"
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone. Products with order history will be archived instead of permanently removed.`
+            : ""
+        }
+        confirmLabel={deleting ? "Deleting…" : "Delete Product"}
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }
