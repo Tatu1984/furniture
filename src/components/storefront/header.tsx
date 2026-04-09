@@ -22,11 +22,13 @@ import { SearchCommand } from "@/components/shared/search-command";
 import { cn } from "@/lib/utils";
 import { useScrollDirection } from "@/hooks/use-scroll-direction";
 
-type NavCategory = { id: string; name: string; slug: string };
+type NavLink = { id: string; label: string; href: string };
 
-const STATIC_LINKS = [{ label: "Projects", href: "/projects" }];
+const FALLBACK_LINKS: NavLink[] = [
+  { id: "projects", label: "Projects", href: "/projects" },
+];
 
-export function Header({ categories = [] }: { categories?: NavCategory[] }) {
+export function Header({ navLinks = [] }: { navLinks?: NavLink[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
@@ -37,13 +39,7 @@ export function Header({ categories = [] }: { categories?: NavCategory[] }) {
   const { user, isAuthenticated } = useAuthStore();
   const logout = useAuthStore((s) => s.logout);
 
-  const navLinks = [
-    ...categories.slice(0, 5).map((c) => ({
-      label: c.name,
-      href: `/categories/${c.slug}`,
-    })),
-    ...STATIC_LINKS,
-  ];
+  const links = navLinks.length > 0 ? navLinks : FALLBACK_LINKS;
 
   return (
     <header
@@ -69,9 +65,9 @@ export function Header({ categories = [] }: { categories?: NavCategory[] }) {
             <SheetContent side="left" className="w-80">
               <SheetTitle className="sr-only">Navigation menu</SheetTitle>
               <div className="flex flex-col gap-4 mt-8">
-                {navLinks.map((link) => (
+                {links.map((link) => (
                   <Link
-                    key={link.href}
+                    key={link.id}
                     href={link.href}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
@@ -127,9 +123,9 @@ export function Header({ categories = [] }: { categories?: NavCategory[] }) {
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-6">
-            {navLinks.map((link) => (
+            {links.map((link) => (
               <Link
-                key={link.href}
+                key={link.id}
                 href={link.href}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary",

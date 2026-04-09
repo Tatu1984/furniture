@@ -92,6 +92,57 @@ async function main() {
   }
   console.log(`Categories upserted: ${catCount}`);
 
+  // ── Main Navigation menu (HEADER) ─────────────────────────────────────
+  const mainMenu = await prisma.menu.upsert({
+    where: { slug: "main-navigation" },
+    update: { name: "Main Navigation", location: "HEADER" },
+    create: {
+      name: "Main Navigation",
+      slug: "main-navigation",
+      location: "HEADER",
+    },
+  });
+
+  // Replace items each run so the menu stays in sync with current categories
+  await prisma.menuItem.deleteMany({ where: { menuId: mainMenu.id } });
+
+  const rootCategories = await prisma.category.findMany({
+    where: { parentId: null, isActive: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    take: 6,
+  });
+
+  for (let i = 0; i < rootCategories.length; i++) {
+    const c = rootCategories[i];
+    await prisma.menuItem.create({
+      data: {
+        menuId: mainMenu.id,
+        title: c.name,
+        url: `/categories/${c.slug}`,
+        type: "CATEGORY",
+        targetId: c.id,
+        sortOrder: i,
+        isActive: true,
+      },
+    });
+  }
+
+  // Static "Projects" link at the end
+  await prisma.menuItem.create({
+    data: {
+      menuId: mainMenu.id,
+      title: "Projects",
+      url: "/projects",
+      type: "CUSTOM",
+      sortOrder: rootCategories.length,
+      isActive: true,
+    },
+  });
+
+  console.log(
+    `Main Navigation menu seeded with ${rootCategories.length + 1} items`,
+  );
+
   await (prisma as unknown as { $disconnect: () => Promise<void> }).$disconnect();
 }
 

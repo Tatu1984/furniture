@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
-type NavCategory = { id: string; name: string; slug: string };
+type FooterLink = { id: string; label: string; href: string };
 
 const supportLinks = [
   { label: "Contact Us", href: "/contact" },
@@ -20,12 +20,11 @@ const companyLinks = [
   { label: "Press", href: "/press" },
 ];
 
-export function Footer({ categories = [] }: { categories?: NavCategory[] }) {
-  const shopLinks = categories.slice(0, 6).map((c) => ({
-    label: c.name,
-    href: `/categories/${c.slug}`,
-  }));
-
+export function Footer({
+  shopLinks = [],
+}: {
+  shopLinks?: FooterLink[];
+}) {
   return (
     <footer className="bg-card border-t">
       <div className="container mx-auto px-4 py-12">
@@ -60,7 +59,7 @@ export function Footer({ categories = [] }: { categories?: NavCategory[] }) {
             <h3 className="font-semibold mb-4">Shop</h3>
             <ul className="space-y-2">
               {shopLinks.map((link) => (
-                <li key={link.href}>
+                <li key={link.id}>
                   <Link
                     href={link.href}
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
