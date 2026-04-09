@@ -1,11 +1,30 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { categories } from "@/lib/mock-data/categories";
+import prisma from "@/lib/db";
 
-export function CategoryShowcase() {
-  // Take the first 6 categories
-  const displayCategories = categories.slice(0, 6);
+export async function CategoryShowcase() {
+  // Top-level active categories from DB, ordered by sortOrder
+  const dbCategories = await prisma.category.findMany({
+    where: { isActive: true, parentId: null },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    take: 6,
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      _count: {
+        select: { products: { where: { status: "PUBLISHED" } } },
+      },
+    },
+  });
+
+  const displayCategories = dbCategories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    productCount: c._count.products,
+  }));
 
   return (
     <section className="container mx-auto px-4 py-20">

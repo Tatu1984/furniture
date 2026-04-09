@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { categories } from "@/lib/mock-data/categories";
+import prisma from "@/lib/db";
 import { SectionHeading } from "@/components/shared/section-heading";
 
 // ---------------------------------------------------------------------------
@@ -18,7 +18,29 @@ export const metadata = {
 // Page
 // ---------------------------------------------------------------------------
 
-export default function CategoriesPage() {
+export default async function CategoriesPage() {
+  const dbCategories = await prisma.category.findMany({
+    where: { isActive: true, parentId: null },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      _count: {
+        select: { products: { where: { status: "PUBLISHED" } } },
+      },
+    },
+  });
+
+  const categories = dbCategories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    description: c.description ?? "",
+    productCount: c._count.products,
+  }));
+
   return (
     <section className="container mx-auto px-4 py-12 md:py-20">
       <SectionHeading
