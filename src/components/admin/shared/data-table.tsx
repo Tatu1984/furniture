@@ -40,6 +40,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchKey?: string;
   searchPlaceholder?: string;
+  onSelectionChange?: (rows: TData[]) => void;
+  toolbar?: React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -47,6 +49,8 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder = "Search...",
+  onSelectionChange,
+  toolbar,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -80,16 +84,31 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  // Notify parent of selection changes
+  React.useEffect(() => {
+    if (!onSelectionChange) return;
+    const selected = table
+      .getFilteredSelectedRowModel()
+      .rows.map((r) => r.original);
+    onSelectionChange(selected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowSelection, data]);
+
   return (
     <div className="space-y-4">
-      {searchKey !== undefined && (
-        <div className="flex items-center">
-          <Input
-            placeholder={searchPlaceholder}
-            value={globalFilter ?? ""}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="max-w-sm"
-          />
+      {(searchKey !== undefined || toolbar) && (
+        <div className="flex items-center justify-between gap-2">
+          {searchKey !== undefined ? (
+            <Input
+              placeholder={searchPlaceholder}
+              value={globalFilter ?? ""}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="max-w-sm"
+            />
+          ) : (
+            <div />
+          )}
+          {toolbar}
         </div>
       )}
 

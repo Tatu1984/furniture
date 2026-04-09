@@ -302,6 +302,48 @@ export default function ProductsPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<Product | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [selected, setSelected] = React.useState<Product[]>([]);
+  const [bulkBusy, setBulkBusy] = React.useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false);
+
+  const handleSelectionChange = React.useCallback((rows: Product[]) => {
+    setSelected(rows);
+  }, []);
+
+  async function runBulkAction(action: "delete" | "archive" | "publish") {
+    if (selected.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/products/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          ids: selected.map((p) => p.id),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || `Bulk ${action} failed`);
+      }
+      if (action === "delete") {
+        const parts: string[] = [];
+        if (data.deleted) parts.push(`${data.deleted} deleted`);
+        if (data.archived)
+          parts.push(`${data.archived} archived (have order history)`);
+        toast.success(parts.join(", ") || "Done");
+      } else {
+        toast.success(`${data.updated ?? selected.length} product(s) ${action}d`);
+      }
+      setSelected([]);
+      setBulkDeleteOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Bulk ${action} failed`);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   // Fetch tab counts once on mount
   React.useEffect(() => {
@@ -495,6 +537,35 @@ export default function ProductsPage() {
           data={products}
           searchKey="name"
           searchPlaceholder="Search products..."
+          onSelectionChange={handleSelectionChange}
+          toolbar={
+            selected.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {selected.length} selected
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkBusy}
+                  onClick={() => runBulkAction("archive")}
+                >
+                  <Archive className="size-3.5" />
+                  Archive
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkBusy}
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setBulkDeleteOpen(true)}
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </Button>
+              </div>
+            ) : null
+          }
         />
       )}
 
@@ -512,6 +583,19 @@ export default function ProductsPage() {
         confirmLabel={deleting ? "Deleting…" : "Delete Product"}
         cancelLabel="Cancel"
         onConfirm={handleConfirmDelete}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => {
+          if (!open && !bulkBusy) setBulkDeleteOpen(false);
+        }}
+        title={`Delete ${selected.length} product(s)?`}
+        description="Products with order history will be archived instead of permanently removed. This cannot be undone."
+        confirmLabel={bulkBusy ? "Deleting…" : "Delete Selected"}
+        cancelLabel="Cancel"
+        onConfirm={() => runBulkAction("delete")}
         variant="destructive"
       />
     </div>
