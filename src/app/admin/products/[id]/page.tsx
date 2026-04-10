@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImageUpload } from "@/components/admin/shared/image-upload";
 import {
   Form,
   FormControl,
@@ -129,7 +130,9 @@ export default function EditProductPage() {
   const productId = params.id as string;
 
   const [tagInput, setTagInput] = React.useState("");
-  const [mockImages, setMockImages] = React.useState<string[]>([]);
+  const [productImages, setProductImages] = React.useState<
+    { url: string; alt?: string }[]
+  >([]);
   const [activeTab, setActiveTab] = React.useState("general");
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
@@ -194,8 +197,11 @@ export default function EditProductPage() {
         const product = productJson.data;
 
         setProductName(product.name);
-        setMockImages(
-          product.images?.map((img: { url: string }) => img.url) || []
+        setProductImages(
+          product.images?.map((img: { url: string; alt?: string }) => ({
+            url: img.url,
+            alt: img.alt || "",
+          })) || []
         );
 
         // Map API fields to form fields, converting uppercase enums to lowercase
@@ -315,6 +321,12 @@ export default function EditProductPage() {
         sku: data.sku || undefined,
         shortDescription: data.shortDescription || undefined,
         description: data.fullDescription || undefined,
+        images: productImages.map((img, i) => ({
+          url: img.url,
+          alt: img.alt || data.name,
+          sortOrder: i,
+          isDefault: i === 0,
+        })),
         price: data.price,
         compareAtPrice: data.compareAtPrice || null,
         costPrice: data.costPerItem || null,
@@ -1517,58 +1529,12 @@ export default function EditProductPage() {
                 <CardHeader>
                   <CardTitle className="text-base">Media</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer">
-                    <Upload className="size-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm font-medium">Click to upload or drag and drop</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      PNG, JPG, WebP up to 10MB
-                    </p>
-                  </div>
-
-                  {mockImages.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {mockImages.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="relative group rounded-lg border overflow-hidden aspect-square bg-amber-50"
-                        >
-                          <div className="w-full h-full flex items-center justify-center text-amber-800/60 text-xs text-center p-1">
-                            {img}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon-xs"
-                            className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() =>
-                              setMockImages((prev) =>
-                                prev.filter((_, i) => i !== idx)
-                              )
-                            }
-                          >
-                            <X className="size-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() =>
-                      setMockImages((prev) => [
-                        ...prev,
-                        `Image ${prev.length + 1}`,
-                      ])
-                    }
-                  >
-                    <Plus className="size-3.5" />
-                    Add Mock Image
-                  </Button>
+                <CardContent>
+                  <ImageUpload
+                    value={productImages}
+                    onChange={setProductImages}
+                    max={10}
+                  />
                 </CardContent>
               </Card>
 

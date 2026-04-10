@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ImageUpload } from "@/components/admin/shared/image-upload";
 import {
   Select,
   SelectContent,
@@ -116,6 +117,9 @@ export default function CategoriesPage() {
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [categoryImage, setCategoryImage] = React.useState<
+    { url: string; alt?: string }[]
+  >([]);
   const [formData, setFormData] = React.useState({
     name: "",
     slug: "",
@@ -163,6 +167,7 @@ export default function CategoriesPage() {
         slug: formData.slug,
         description: formData.description || undefined,
         isActive: formData.status === "active",
+        image: categoryImage[0]?.url || null,
       };
       if (formData.parentId && formData.parentId !== "none") {
         body.parentId = formData.parentId;
@@ -179,6 +184,7 @@ export default function CategoriesPage() {
       toast.success("Category created successfully");
       setDialogOpen(false);
       setFormData({ name: "", slug: "", description: "", parentId: "", status: "active" });
+      setCategoryImage([]);
       fetchCategories();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create category");
@@ -291,15 +297,12 @@ export default function CategoriesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Image</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <Upload className="size-6 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground">
-                    Click to upload category image
-                  </p>
-                </div>
-              </div>
+              <ImageUpload
+                label="Image"
+                value={categoryImage}
+                onChange={setCategoryImage}
+                single
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>

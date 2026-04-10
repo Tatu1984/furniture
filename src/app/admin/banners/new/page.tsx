@@ -2,15 +2,18 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Upload, ImageIcon } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowLeft, Loader2, ImageIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImageUpload } from "@/components/admin/shared/image-upload";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -50,7 +53,11 @@ type BannerFormValues = z.infer<typeof bannerSchema>;
 // --- Component ---
 
 export default function CreateBannerPage() {
-  const [mockImage, setMockImage] = React.useState<string | null>(null);
+  const router = useRouter();
+  const [bannerImage, setBannerImage] = React.useState<
+    { url: string; alt?: string }[]
+  >([]);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<BannerFormValues>({
     resolver: zodResolver(bannerSchema),
@@ -70,15 +77,47 @@ export default function CreateBannerPage() {
 
   const watchStatus = form.watch("status");
 
-  function onSubmit(data: BannerFormValues) {
-    console.log("Banner data:", { ...data, image: mockImage });
-  }
-
-  function handleMockUpload() {
-    const seed = form.getValues("title") || "new-banner";
-    setMockImage(
-      `https://picsum.photos/seed/${seed.toLowerCase().replace(/\s+/g, "-")}/800/400`
-    );
+  async function onSubmit(data: BannerFormValues) {
+    if (bannerImage.length === 0) {
+      toast.error("Please upload a banner image");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const positionMap: Record<string, string> = {
+        hero: "HOME_HERO",
+        sidebar: "SIDEBAR",
+        promotional: "PROMOTIONAL_STRIP",
+        category: "CATEGORY_TOP",
+      };
+      const res = await fetch("/api/admin/banners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: data.title,
+          subtitle: data.subtitle || null,
+          image: bannerImage[0].url,
+          link: data.linkUrl || null,
+          position: positionMap[data.position] || "HOME_HERO",
+          isActive: data.status === "active",
+          startsAt: data.startDate || null,
+          endsAt: data.endDate || null,
+          sortOrder: data.sortOrder,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to create banner");
+      }
+      toast.success("Banner created");
+      router.push("/admin/banners");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create banner",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -170,39 +209,11 @@ export default function CreateBannerPage() {
                   <CardTitle className="text-base">Banner Image</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {mockImage ? (
-                    <div className="space-y-3">
-                      <div className="relative rounded-lg border overflow-hidden bg-muted aspect-[2/1]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={mockImage}
-                          alt="Banner preview"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMockImage(null)}
-                      >
-                        Remove Image
-                      </Button>
-                    </div>
-                  ) : (
-                    <div
-                      className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                      onClick={handleMockUpload}
-                    >
-                      <Upload className="size-8 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-sm font-medium">
-                        Drag and drop an image here, or click to browse
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Recommended: 1200x600px for hero, 400x600px for sidebar
-                      </p>
-                    </div>
-                  )}
+                  <ImageUpload
+                    value={bannerImage}
+                    onChange={setBannerImage}
+                    single
+                  />
                   <FormField
                     control={form.control}
                     name="altText"
