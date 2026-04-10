@@ -152,8 +152,9 @@ export function ProductDetailContent({ slug }: ProductDetailContentProps) {
     fetch(`/api/products/${slug}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        if (json?.data) {
-          setProduct(mapApiProduct(json.data));
+        const p = json?.data ?? json?.product;
+        if (p) {
+          setProduct(mapApiProduct(p));
         }
       })
       .catch(() => {})
