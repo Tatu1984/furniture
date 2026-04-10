@@ -770,9 +770,24 @@ export default function MenuEditorPage({
               <Input
                 placeholder="Display label"
                 value={newItem.title}
-                onChange={(e) =>
-                  setNewItem((prev) => ({ ...prev, title: e.target.value }))
-                }
+                onChange={(e) => {
+                  const title = e.target.value;
+                  setNewItem((prev) => ({
+                    ...prev,
+                    title,
+                    // Auto-generate URL slug for custom links as user types
+                    ...(prev.type === "CUSTOM"
+                      ? {
+                          url:
+                            "/" +
+                            title
+                              .toLowerCase()
+                              .replace(/[^a-z0-9]+/g, "-")
+                              .replace(/(^-|-$)/g, ""),
+                        }
+                      : {}),
+                  }));
+                }}
               />
             </div>
 
