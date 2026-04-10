@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import {
   Heart,
@@ -86,6 +86,11 @@ interface ProductDetail {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function mapApiProduct(p: any): ProductDetail {
+  // Handle images — could be [{url, alt}] from server or [string] already mapped
+  const images: string[] = (p.images ?? []).map((img: any) =>
+    typeof img === "string" ? img : img.url,
+  );
+
   return {
     id: p.id,
     slug: p.slug,
@@ -95,12 +100,13 @@ function mapApiProduct(p: any): ProductDetail {
     category: p.category?.name ?? "Furniture",
     categorySlug: p.category?.slug ?? "all",
     description: p.description || p.shortDescription || "",
-    images: (p.images ?? []).map((img: any) => img.url),
-    rating: Number(p.averageRating ?? 0),
-    reviewCount: p._count?.reviews ?? 0,
-    colors: (p.materials ?? []).length > 0
-      ? [{ name: "Default", hex: "#C4A882" }]
-      : [],
+    images: images.length > 0 ? images : ["/placeholder.svg"],
+    rating: Number(p.averageRating ?? p.rating?.average ?? 0),
+    reviewCount: p.reviewCount ?? p._count?.reviews ?? p.rating?.count ?? 0,
+    colors:
+      (p.materials ?? []).length > 0
+        ? [{ name: "Default", hex: "#C4A882" }]
+        : [],
     sizes: [],
     materials: p.materials ?? [],
     specifications: (p.specifications ?? []).map((s: any) => ({
@@ -122,7 +128,7 @@ function mapApiProduct(p: any): ProductDetail {
       date: r.createdAt ?? "",
       rating: r.rating ?? 5,
       title: r.title ?? "",
-      text: r.comment ?? "",
+      text: r.content ?? r.comment ?? "",
     })),
     ratingSummary: p.ratingBreakdown ?? [
       { star: 5, count: 0 },
@@ -140,56 +146,29 @@ function mapApiProduct(p: any): ProductDetail {
 // Component
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface ProductDetailContentProps {
-  slug: string;
+  product: any;
 }
 
-export function ProductDetailContent({ slug }: ProductDetailContentProps) {
-  const [product, setProduct] = useState<ProductDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`/api/products/${slug}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        const p = json?.data ?? json?.product;
-        if (p) {
-          setProduct(mapApiProduct(p));
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [slug]);
+export function ProductDetailContent({ product: raw }: ProductDetailContentProps) {
+  const product = mapApiProduct(raw);
 
   const addItem = useCartStore((s) => s.addItem);
   const toggleCart = useCartStore((s) => s.toggleCart);
   const toggleItem = useWishlistStore((s) => s.toggleItem);
-  const isInWishlist = useWishlistStore((s) =>
-    product ? s.isInWishlist(product.id) : false,
-  );
+  const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id));
 
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState("");
-  const [selectedSize, setSelectedSize] = useState("");
-  const [selectedMaterial, setSelectedMaterial] = useState("");
+  const [selectedColor, setSelectedColor] = useState(
+    product.colors[0]?.name ?? "",
+  );
+  const [selectedSize, setSelectedSize] = useState(product.sizes[0] ?? "");
+  const [selectedMaterial, setSelectedMaterial] = useState(
+    product.materials[0] ?? "",
+  );
   const [quantity, setQuantity] = useState(1);
   const [assemblyAddon, setAssemblyAddon] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="text-center py-24 text-muted-foreground">
-        <p>Product not found.</p>
-      </div>
-    );
-  }
 
   const handleAddToCart = () => {
     addItem({
