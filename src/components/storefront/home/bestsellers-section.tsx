@@ -1,56 +1,58 @@
 "use client";
 
+import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { PriceDisplay } from "@/components/shared/price-display";
-import { RatingStars } from "@/components/shared/rating-stars";
 
-const bestsellers = [
-  {
-    id: "bs-1",
-    slug: "nordic-lounge-chair",
-    name: "Nordic Lounge Chair",
-    price: 699,
-    compareAtPrice: 899,
-    rating: 4.9,
-    reviewCount: 312,
-    image: "https://picsum.photos/seed/nordic-chair/600/600",
-  },
-  {
-    id: "bs-2",
-    slug: "cedar-dining-set",
-    name: "Cedar 6-Seat Dining Set",
-    price: 2299,
-    compareAtPrice: 2799,
-    rating: 4.8,
-    reviewCount: 189,
-    image: "https://picsum.photos/seed/cedar-dining/600/600",
-  },
-  {
-    id: "bs-3",
-    slug: "cloud-comfort-mattress",
-    name: "Cloud Comfort Mattress",
-    price: 1199,
-    compareAtPrice: 1499,
-    rating: 4.7,
-    reviewCount: 456,
-    image: "https://picsum.photos/seed/cloud-mattress/600/600",
-  },
-  {
-    id: "bs-4",
-    slug: "modular-storage-unit",
-    name: "Modular Storage Unit",
-    price: 549,
-    compareAtPrice: 699,
-    rating: 4.6,
-    reviewCount: 234,
-    image: "https://picsum.photos/seed/modular-storage/600/600",
-  },
-];
+type BestsellerProduct = {
+  id: string;
+  slug: string;
+  name: string;
+  price: number;
+  compareAtPrice: number | null;
+  image: string | null;
+};
 
 export function BestsellersSection() {
+  const [products, setProducts] = React.useState<BestsellerProduct[]>([]);
+
+  React.useEffect(() => {
+    fetch("/api/products?bestseller=true&limit=4")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!json?.data || json.data.length === 0) {
+          // Fallback to latest products
+          fetch("/api/products?limit=4")
+            .then((r) => (r.ok ? r.json() : null))
+            .then((j) => {
+              if (j?.data) mapAndSet(j.data);
+            });
+          return;
+        }
+        mapAndSet(json.data);
+      })
+      .catch(() => {});
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function mapAndSet(data: any[]) {
+      setProducts(
+        data.map((p) => ({
+          id: p.id,
+          slug: p.slug,
+          name: p.name,
+          price: Number(p.price ?? 0),
+          compareAtPrice: p.compareAtPrice ? Number(p.compareAtPrice) : null,
+          image: p.images?.[0]?.url ?? null,
+        })),
+      );
+    }
+  }, []);
+
+  if (products.length === 0) return null;
+
   return (
     <section className="bg-secondary/30 py-20">
       <div className="container mx-auto px-4">
@@ -60,7 +62,7 @@ export function BestsellersSection() {
         />
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {bestsellers.map((product, index) => (
+          {products.map((product, index) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 30 }}
@@ -76,14 +78,21 @@ export function BestsellersSection() {
                 href={`/products/${product.slug}`}
                 className="group block overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
-                <div className="relative aspect-square overflow-hidden">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+                <div className="relative aspect-square overflow-hidden bg-muted">
+                  {product.image ? (
+                    <Image
+                      src={product.image}
+                      alt={product.name}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="size-full flex items-center justify-center text-muted-foreground text-xs">
+                      No image
+                    </div>
+                  )}
                   <div className="absolute left-3 top-3">
                     <span className="rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-white">
                       Bestseller
@@ -95,17 +104,9 @@ export function BestsellersSection() {
                   <h3 className="line-clamp-1 font-semibold text-foreground">
                     {product.name}
                   </h3>
-
-                  <RatingStars
-                    rating={product.rating}
-                    size="sm"
-                    showValue
-                    reviewCount={product.reviewCount}
-                  />
-
                   <PriceDisplay
                     price={product.price}
-                    compareAtPrice={product.compareAtPrice}
+                    compareAtPrice={product.compareAtPrice ?? undefined}
                   />
                 </div>
               </Link>

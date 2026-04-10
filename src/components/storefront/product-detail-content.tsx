@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
   Heart,
@@ -81,9 +81,61 @@ interface ProductDetail {
 }
 
 // ---------------------------------------------------------------------------
-// Mock product data
+// Fetch product from API and map to the shape the JSX expects
 // ---------------------------------------------------------------------------
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function mapApiProduct(p: any): ProductDetail {
+  return {
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    price: Number(p.price ?? 0),
+    compareAtPrice: p.compareAtPrice ? Number(p.compareAtPrice) : undefined,
+    category: p.category?.name ?? "Furniture",
+    categorySlug: p.category?.slug ?? "all",
+    description: p.description || p.shortDescription || "",
+    images: (p.images ?? []).map((img: any) => img.url),
+    rating: Number(p.averageRating ?? 0),
+    reviewCount: p._count?.reviews ?? 0,
+    colors: (p.materials ?? []).length > 0
+      ? [{ name: "Default", hex: "#C4A882" }]
+      : [],
+    sizes: [],
+    materials: p.materials ?? [],
+    specifications: (p.specifications ?? []).map((s: any) => ({
+      label: s.name ?? s.groupName ?? "",
+      value: s.value ?? "",
+    })),
+    careInstructions: p.careInstructions ?? "",
+    assemblyRequired: p.assemblyRequired ?? false,
+    assemblyTime: p.assemblyTime ?? undefined,
+    estimatedDelivery: p.estimatedDeliveryDays
+      ? `Free delivery in ${p.estimatedDeliveryDays} business days`
+      : "Free delivery in 5-7 business days",
+    reviews: (p.reviews ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.user
+        ? `${r.user.firstName ?? ""} ${r.user.lastName ?? ""}`.trim()
+        : "Customer",
+      avatar: r.user?.avatar ?? "",
+      date: r.createdAt ?? "",
+      rating: r.rating ?? 5,
+      title: r.title ?? "",
+      text: r.comment ?? "",
+    })),
+    ratingSummary: p.ratingBreakdown ?? [
+      { star: 5, count: 0 },
+      { star: 4, count: 0 },
+      { star: 3, count: 0 },
+      { star: 2, count: 0 },
+      { star: 1, count: 0 },
+    ],
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+// Legacy mock data kept only as type-compatible fallback
 const productsMap: Record<string, ProductDetail> = {
   "modern-sofa": {
     id: "p1",
@@ -328,30 +380,62 @@ interface ProductDetailContentProps {
 }
 
 export function ProductDetailContent({ slug }: ProductDetailContentProps) {
-  const product = getProduct(slug);
+  const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/products/${slug}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.data) {
+          setProduct(mapApiProduct(json.data));
+        } else {
+          // Fallback to mock if API product not found
+          setProduct(getProduct(slug));
+        }
+      })
+      .catch(() => {
+        setProduct(getProduct(slug));
+      })
+      .finally(() => setLoading(false));
+  }, [slug]);
 
   const addItem = useCartStore((s) => s.addItem);
   const toggleCart = useCartStore((s) => s.toggleCart);
   const toggleItem = useWishlistStore((s) => s.toggleItem);
-  const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id));
+  const isInWishlist = useWishlistStore((s) =>
+    product ? s.isInWishlist(product.id) : false,
+  );
 
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState(
-    product.colors[0]?.name ?? "",
-  );
-  const [selectedSize, setSelectedSize] = useState(product.sizes[0] ?? "");
-  const [selectedMaterial, setSelectedMaterial] = useState(
-    product.materials[0] ?? "",
-  );
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedMaterial, setSelectedMaterial] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [assemblyAddon, setAssemblyAddon] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="text-center py-24 text-muted-foreground">
+        <p>Product not found.</p>
+      </div>
+    );
+  }
 
   const handleAddToCart = () => {
     addItem({
       productId: product.id,
       name: product.name,
       slug: product.slug,
-      image: product.images[0],
+      image: product.images[0] ?? "",
       price: product.price + (assemblyAddon ? 99 : 0),
       variant: {
         color: selectedColor,
@@ -412,6 +496,7 @@ export function ProductDetailContent({ slug }: ProductDetailContentProps) {
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
                 priority
+                unoptimized
               />
             </motion.div>
           </AnimatePresence>

@@ -62,6 +62,14 @@ export async function GET(request: NextRequest) {
       where.stockStatus = { in: ["IN_STOCK", "LOW_STOCK"] };
     }
 
+    if (searchParams.get("featured") === "true") {
+      where.isFeatured = true;
+    }
+
+    if (searchParams.get("bestseller") === "true") {
+      where.isBestseller = true;
+    }
+
     // ── Build orderBy ───────────────────────────────────────────────────
     let orderBy: Prisma.ProductOrderByWithRelationInput;
     switch (sort) {
