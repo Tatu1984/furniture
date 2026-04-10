@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -86,12 +88,44 @@ export default function CreateUserPage() {
     },
   });
 
+  const router = useRouter();
+
   async function onSubmit(data: CreateUserValues) {
     setIsLoading(true);
-    // Mock save
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    console.log("Create user:", data);
-    setIsLoading(false);
+    try {
+      const roleMap: Record<string, string> = {
+        admin: "ADMIN",
+        manager: "MANAGER",
+        staff: "EDITOR",
+        customer: "CUSTOMER",
+      };
+      const statusMap: Record<string, string> = {
+        active: "ACTIVE",
+        pending: "PENDING",
+        suspended: "SUSPENDED",
+      };
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          firstName: data.firstName || undefined,
+          lastName: data.lastName || undefined,
+          phone: data.phone || undefined,
+          role: roleMap[data.role] || "EDITOR",
+          status: statusMap[data.status] || "ACTIVE",
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Failed to create user");
+      toast.success("User created");
+      router.push("/admin/users");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create user");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (

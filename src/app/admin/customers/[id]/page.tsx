@@ -48,7 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCustomerById } from "@/lib/mock-data/customers";
+import { toast } from "sonner";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -302,14 +302,77 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function CustomerDetailPage() {
   const params = useParams();
-  const customer = getCustomerById(params.id as string);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [customer, setCustomer] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
   const [notes, setNotes] = React.useState("");
 
   React.useEffect(() => {
-    if (customer) {
-      setNotes(customer.notes);
+    async function load() {
+      try {
+        const res = await fetch(`/api/admin/customers/${params.id}`);
+        if (!res.ok) throw new Error("Customer not found");
+        const json = await res.json();
+        const c = json.data;
+        // Map API shape to match what JSX expects
+        setCustomer({
+          id: c.id,
+          firstName: c.firstName ?? "",
+          lastName: c.lastName ?? "",
+          email: c.email,
+          phone: c.phone ?? "",
+          avatar: c.avatar ?? "",
+          orderCount: c._count?.orders ?? 0,
+          totalSpent: (c.orders ?? []).reduce(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (sum: number, o: any) => sum + Number(o.total ?? 0),
+            0,
+          ),
+          createdAt: c.createdAt,
+          lastOrderAt: c.orders?.[0]?.createdAt ?? null,
+          tags: c.tags ?? [],
+          notes: c.notes ?? "",
+          address: c.addresses?.[0]
+            ? {
+                street: c.addresses[0].addressLine1 ?? "",
+                city: c.addresses[0].city ?? "",
+                state: c.addresses[0].state ?? "",
+                zip: c.addresses[0].postalCode ?? "",
+                country: c.addresses[0].country ?? "",
+              }
+            : { street: "", city: "", state: "", zip: "", country: "" },
+          shippingAddress: c.addresses?.[0]
+            ? {
+                street: c.addresses[0].addressLine1 ?? "",
+                city: c.addresses[0].city ?? "",
+                state: c.addresses[0].state ?? "",
+                zip: c.addresses[0].postalCode ?? "",
+                country: c.addresses[0].country ?? "",
+              }
+            : { street: "", city: "", state: "", zip: "", country: "" },
+        });
+        setNotes(c.notes ?? "");
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to load customer",
+        );
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [customer]);
+    load();
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading customer...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!customer) {
     return (

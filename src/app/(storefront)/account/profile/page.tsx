@@ -80,13 +80,42 @@ export default function AccountProfilePage() {
     },
   });
 
-  function onProfileSubmit(data: ProfileFormValues) {
-    toast.success("Profile updated successfully!");
+  async function onProfileSubmit(data: ProfileFormValues) {
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Failed to update profile");
+      toast.success("Profile updated successfully!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update profile");
+    }
   }
 
-  function onPasswordSubmit(data: PasswordFormValues) {
-    toast.success("Password changed successfully!");
-    passwordForm.reset();
+  async function onPasswordSubmit(data: PasswordFormValues) {
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: data.currentPassword,
+          newPassword: data.newPassword,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Failed to change password");
+      toast.success("Password changed successfully!");
+      passwordForm.reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to change password");
+    }
   }
 
   return (

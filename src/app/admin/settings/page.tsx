@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
   CreditCard,
   Globe,
@@ -13,7 +14,68 @@ import {
   Trash2,
   Pencil,
   Image,
+  Loader2,
 } from "lucide-react";
+
+// ── Settings helper: load from / save to API ────────────────────────────
+function useSettings(group: string) {
+  const [loaded, setLoaded] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const dataRef = React.useRef<Record<string, unknown>>({});
+
+  const load = React.useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async (setters: Record<string, (v: any) => void>) => {
+      try {
+        const res = await fetch(`/api/admin/settings?group=${group}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        const grouped = json.grouped?.[group] ?? {};
+        for (const [key, setter] of Object.entries(setters)) {
+          if (grouped[key] !== undefined) {
+            setter(grouped[key]);
+          }
+        }
+        dataRef.current = grouped;
+      } finally {
+        setLoaded(true);
+      }
+    },
+    [group],
+  );
+
+  const save = React.useCallback(
+    async (fields: Record<string, unknown>) => {
+      setSaving(true);
+      try {
+        const settings = Object.entries(fields).map(([key, value]) => ({
+          key,
+          value,
+          group,
+        }));
+        const res = await fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ settings }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => null);
+          throw new Error(j?.error || "Failed to save settings");
+        }
+        toast.success("Settings saved");
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to save settings",
+        );
+      } finally {
+        setSaving(false);
+      }
+    },
+    [group],
+  );
+
+  return { loaded, saving, load, save };
+}
 
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -63,17 +125,27 @@ import { StatusBadge } from "@/components/shared/status-badge";
 
 function GeneralTab() {
   const [storeName, setStoreName] = React.useState("FSOW Furniture");
-  const [storeDescription, setStoreDescription] = React.useState(
-    "Premium handcrafted furniture for the modern home. We source sustainable materials and partner with skilled artisans to bring you timeless pieces that combine comfort, durability, and beauty."
-  );
-  const [storeEmail, setStoreEmail] = React.useState("hello@fsow.com");
-  const [phone, setPhone] = React.useState("(415) 555-0100");
-  const [address, setAddress] = React.useState(
-    "123 Market Street\nSuite 450\nSan Francisco, CA 94102\nUnited States"
-  );
-  const [logoUrl, setLogoUrl] = React.useState("/logo.svg");
-  const [currency, setCurrency] = React.useState("USD");
-  const [timezone, setTimezone] = React.useState("America/Los_Angeles");
+  const [storeDescription, setStoreDescription] = React.useState("");
+  const [storeEmail, setStoreEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [address, setAddress] = React.useState("");
+  const [logoUrl, setLogoUrl] = React.useState("");
+  const [currency, setCurrency] = React.useState("INR");
+  const [timezone, setTimezone] = React.useState("Asia/Kolkata");
+  const { saving, load, save } = useSettings("general");
+
+  React.useEffect(() => {
+    load({
+      storeName: setStoreName,
+      storeDescription: setStoreDescription,
+      storeEmail: setStoreEmail,
+      phone: setPhone,
+      address: setAddress,
+      logoUrl: setLogoUrl,
+      currency: setCurrency,
+      timezone: setTimezone,
+    });
+  }, [load]);
 
   return (
     <Card>
@@ -213,7 +285,15 @@ function GeneralTab() {
         </div>
 
         <div className="flex justify-end">
-          <Button>Save Changes</Button>
+          <Button
+            disabled={saving}
+            onClick={() =>
+              save({ storeName, storeDescription, storeEmail, phone, address, logoUrl, currency, timezone })
+            }
+          >
+            {saving && <Loader2 className="size-4 animate-spin mr-1" />}
+            Save Changes
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -237,6 +317,15 @@ function ShippingTab() {
     React.useState("500");
   const [defaultShippingRate, setDefaultShippingRate] = React.useState("9.99");
   const [handlingTime, setHandlingTime] = React.useState("2");
+  const { saving, load, save } = useSettings("shipping");
+
+  React.useEffect(() => {
+    load({
+      freeShippingThreshold: setFreeShippingThreshold,
+      defaultShippingRate: setDefaultShippingRate,
+      handlingTime: setHandlingTime,
+    });
+  }, [load]);
 
   const [zones, setZones] = React.useState<ShippingZone[]>([
     {
@@ -351,7 +440,15 @@ function ShippingTab() {
             </div>
           </div>
           <div className="flex justify-end mt-4">
-            <Button>Save Defaults</Button>
+            <Button
+              disabled={saving}
+              onClick={() =>
+                save({ freeShippingThreshold, defaultShippingRate, handlingTime })
+              }
+            >
+              {saving && <Loader2 className="size-4 animate-spin mr-1" />}
+              Save Defaults
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -831,13 +928,26 @@ function PaymentsTab() {
 // ============================================================
 
 function EmailTab() {
-  const [fromName, setFromName] = React.useState("FSOW Furniture");
-  const [fromEmail, setFromEmail] = React.useState("noreply@fsow.com");
-  const [adminEmail, setAdminEmail] = React.useState("admin@fsow.com");
-  const [smtpHost, setSmtpHost] = React.useState("smtp.sendgrid.net");
+  const [fromName, setFromName] = React.useState("");
+  const [fromEmail, setFromEmail] = React.useState("");
+  const [adminEmail, setAdminEmail] = React.useState("");
+  const [smtpHost, setSmtpHost] = React.useState("");
   const [smtpPort, setSmtpPort] = React.useState("587");
-  const [smtpUser, setSmtpUser] = React.useState("apikey");
-  const [smtpPass, setSmtpPass] = React.useState("SG.****************************");
+  const [smtpUser, setSmtpUser] = React.useState("");
+  const [smtpPass, setSmtpPass] = React.useState("");
+  const { saving, load, save } = useSettings("email");
+
+  React.useEffect(() => {
+    load({
+      fromName: setFromName,
+      fromEmail: setFromEmail,
+      adminEmail: setAdminEmail,
+      smtpHost: setSmtpHost,
+      smtpPort: setSmtpPort,
+      smtpUser: setSmtpUser,
+      smtpPass: setSmtpPass,
+    });
+  }, [load]);
   const [testStatus, setTestStatus] = React.useState<
     "idle" | "testing" | "success" | "error"
   >("idle");
@@ -957,7 +1067,15 @@ function EmailTab() {
         <Separator />
 
         <div className="flex justify-end">
-          <Button>Save Email Settings</Button>
+          <Button
+            disabled={saving}
+            onClick={() =>
+              save({ fromName, fromEmail, adminEmail, smtpHost, smtpPort, smtpUser, smtpPass })
+            }
+          >
+            {saving && <Loader2 className="size-4 animate-spin mr-1" />}
+            Save Email Settings
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -976,6 +1094,8 @@ interface NotificationPref {
 }
 
 function NotificationsTab() {
+  const { saving, load, save } = useSettings("notifications");
+  const [prefsLoaded, setPrefsLoaded] = React.useState(false);
   const [prefs, setPrefs] = React.useState<NotificationPref[]>([
     {
       id: "new-order",
@@ -1061,7 +1181,17 @@ function NotificationsTab() {
         </div>
 
         <div className="flex justify-end">
-          <Button>Save Notification Preferences</Button>
+          <Button
+            disabled={saving}
+            onClick={() => {
+              const obj: Record<string, boolean> = {};
+              prefs.forEach((p) => { obj[p.id] = p.enabled; });
+              save(obj);
+            }}
+          >
+            {saving && <Loader2 className="size-4 animate-spin mr-1" />}
+            Save Notification Preferences
+          </Button>
         </div>
       </CardContent>
     </Card>

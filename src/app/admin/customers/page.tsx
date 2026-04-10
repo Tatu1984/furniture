@@ -2,19 +2,29 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Eye } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 
 import { PageHeader } from "@/components/admin/shared/page-header";
-import { DataTable, DataTableColumnHeader } from "@/components/admin/shared/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+} from "@/components/admin/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { customers, type Customer } from "@/lib/mock-data/customers";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { formatPrice } from "@/lib/format";
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
-}
+type Customer = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  orderCount: number;
+  totalSpent: number;
+  createdAt: string;
+};
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", {
@@ -29,7 +39,10 @@ const columns: ColumnDef<Customer>[] = [
     id: "select",
     header: ({ table }) => (
       <Checkbox
-        checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
         aria-label="Select all"
       />
@@ -48,10 +61,9 @@ const columns: ColumnDef<Customer>[] = [
     header: "",
     cell: ({ row }) => (
       <Avatar size="sm">
-        <AvatarImage src={row.original.avatar} alt={`${row.original.firstName} ${row.original.lastName}`} />
         <AvatarFallback>
-          {row.original.firstName[0]}
-          {row.original.lastName[0]}
+          {(row.original.firstName?.[0] ?? "").toUpperCase()}
+          {(row.original.lastName?.[0] ?? "").toUpperCase()}
         </AvatarFallback>
       </Avatar>
     ),
@@ -60,7 +72,9 @@ const columns: ColumnDef<Customer>[] = [
   {
     id: "name",
     accessorFn: (row) => `${row.firstName} ${row.lastName}`,
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Name" />
+    ),
     cell: ({ row }) => (
       <span className="font-medium">
         {row.original.firstName} {row.original.lastName}
@@ -69,26 +83,36 @@ const columns: ColumnDef<Customer>[] = [
   },
   {
     accessorKey: "email",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Email" />
+    ),
     cell: ({ row }) => (
       <span className="text-muted-foreground">{row.original.email}</span>
     ),
   },
   {
     accessorKey: "orderCount",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Orders" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Orders" />
+    ),
     cell: ({ row }) => row.original.orderCount,
   },
   {
     accessorKey: "totalSpent",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Total Spent" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Total Spent" />
+    ),
     cell: ({ row }) => (
-      <span className="font-medium">{formatCurrency(row.original.totalSpent)}</span>
+      <span className="font-medium">
+        {formatPrice(row.original.totalSpent)}
+      </span>
     ),
   },
   {
     accessorKey: "createdAt",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Joined" />
+    ),
     cell: ({ row }) => formatDate(row.original.createdAt),
   },
   {
@@ -107,15 +131,56 @@ const columns: ColumnDef<Customer>[] = [
 ];
 
 export default function CustomersPage() {
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/admin/customers?limit=100");
+        if (!res.ok) throw new Error("Failed to load customers");
+        const json = await res.json();
+        setCustomers(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (json.data ?? []).map((c: any) => ({
+            id: c.id,
+            firstName: c.firstName ?? "",
+            lastName: c.lastName ?? "",
+            email: c.email,
+            orderCount: c._count?.orders ?? 0,
+            totalSpent: Number(c.totalSpent ?? 0),
+            createdAt: c.createdAt,
+          })),
+        );
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to load customers",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
   return (
     <div className="space-y-6">
       <PageHeader title="Customers" description="Manage your customer base" />
-      <DataTable
-        columns={columns}
-        data={customers}
-        searchKey="name"
-        searchPlaceholder="Search by name or email..."
-      />
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">
+            Loading customers...
+          </span>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={customers}
+          searchKey="name"
+          searchPlaceholder="Search by name or email..."
+        />
+      )}
     </div>
   );
 }

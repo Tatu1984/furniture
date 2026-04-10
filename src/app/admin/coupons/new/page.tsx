@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,11 +84,39 @@ export default function CouponNewPage() {
     },
   });
 
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const discountType = form.watch("discountType");
 
-  const onSubmit = (data: CouponFormValues) => {
-    // UI only - no API call
-    console.log("Coupon data:", data);
+  const onSubmit = async (data: CouponFormValues) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/coupons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: data.code,
+          name: data.code,
+          type: data.discountType === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT",
+          value: data.discountValue,
+          minOrderValue: data.minimumOrder ?? null,
+          usageLimit: data.usageLimit ?? null,
+          startsAt: data.startDate || undefined,
+          expiresAt: data.endDate || undefined,
+          status: data.status === "active" ? "ACTIVE" : "DRAFT",
+          productIds: data.products ?? [],
+          categoryIds: data.categories ?? [],
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Failed to create coupon");
+      toast.success("Coupon created");
+      router.push("/admin/coupons");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create coupon");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

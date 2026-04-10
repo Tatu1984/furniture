@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Printer,
@@ -63,157 +64,102 @@ type OrderNote = {
   customerVisible: boolean;
 };
 
-// --- Hardcoded Order Data ---
+// --- Helpers to map API response to the shape the JSX expects ---
 
-const orderData = {
-  id: "ORD-2024-001",
-  createdDate: "December 10, 2024 at 2:34 PM",
-  status: "shipped" as const,
-  paymentStatus: "captured" as const,
-  fulfillmentStatus: "fulfilled" as const,
-  customer: {
-    id: "cust-001",
-    name: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
-    phone: "+1 (555) 123-4567",
-    totalOrders: 7,
-    initials: "SJ",
-  },
-  shipping: {
-    fullName: "Sarah Johnson",
-    address: "123 Maple Street",
-    city: "Portland",
-    state: "OR",
-    zip: "97201",
-    country: "United States",
-    phone: "+1 (555) 123-4567",
-    method: "Standard Shipping (5-7 business days)",
-  },
-  billing: {
-    fullName: "Sarah Johnson",
-    address: "123 Maple Street",
-    city: "Portland",
-    state: "OR",
-    zip: "97201",
-    country: "United States",
-  },
-  payment: {
-    method: "Credit Card",
-    cardBrand: "Visa ending in 4242",
-    transactionId: "TXN-2024-8847291",
-    status: "Captured",
-    amountPaid: 1850.23,
-    refundAmount: 0,
-  },
-  items: [
-    {
-      id: "1",
-      name: "Scandinavian Oak Dining Table",
-      sku: "SODT-2847",
-      variant: "6 Seater / Natural",
-      qty: 1,
-      price: 1299.99,
-      image: "",
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function mapOrderApi(o: any) {
+  const fmtDate = (d: string | null) =>
+    d
+      ? new Date(d).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "";
+
+  const customer = o.user ?? {};
+  const custName = `${customer.firstName ?? ""} ${customer.lastName ?? ""}`.trim() || o.email;
+  const ship = o.shippingAddress ?? {};
+  const bill = o.billingAddress ?? ship;
+
+  return {
+    id: o.orderNumber ?? o.id,
+    createdDate: fmtDate(o.createdAt),
+    status: (o.status ?? "PENDING").toLowerCase(),
+    paymentStatus: (o.paymentStatus ?? "PENDING").toLowerCase(),
+    fulfillmentStatus: (o.fulfillmentStatus ?? "UNFULFILLED").toLowerCase(),
+    customer: {
+      id: customer.id ?? "",
+      name: custName,
+      email: o.email ?? customer.email ?? "",
+      phone: customer.phone ?? o.phone ?? "",
+      totalOrders: 0,
+      initials: (custName[0] ?? "?").toUpperCase(),
     },
-    {
-      id: "2",
-      name: "Linen Throw Pillow - Sand",
-      sku: "LTP-1092",
-      variant: "20x20 inch",
-      qty: 4,
-      price: 59.99,
-      image: "",
+    shipping: {
+      fullName: `${ship.firstName ?? ""} ${ship.lastName ?? ""}`.trim(),
+      address: [ship.addressLine1, ship.addressLine2].filter(Boolean).join(", "),
+      city: ship.city ?? "",
+      state: ship.state ?? "",
+      zip: ship.postalCode ?? "",
+      country: ship.country ?? "",
+      phone: ship.phone ?? "",
+      method: o.shippingMethod ?? "Standard",
     },
-    {
-      id: "3",
-      name: "Ceramic Table Lamp - Matte Black",
-      sku: "CTL-0456",
-      variant: "Standard",
-      qty: 2,
-      price: 129.0,
-      image: "",
+    billing: {
+      fullName: `${bill.firstName ?? ""} ${bill.lastName ?? ""}`.trim(),
+      address: [bill.addressLine1, bill.addressLine2].filter(Boolean).join(", "),
+      city: bill.city ?? "",
+      state: bill.state ?? "",
+      zip: bill.postalCode ?? "",
+      country: bill.country ?? "",
     },
-  ],
-  totals: {
-    subtotal: 1797.95,
-    shipping: 0,
-    tax: 152.28,
-    discount: -100.0,
-    couponCode: "WELCOME100",
-    total: 1850.23,
-  },
-  notes: [
-    {
-      id: "note-1",
-      author: "System",
-      role: "system" as const,
-      timestamp: "Dec 10, 2024 at 2:34 PM",
-      text: "Order #ORD-2024-001 was placed successfully. Payment of $1,850.23 authorized via Visa ending in 4242.",
-      customerVisible: false,
+    payment: {
+      method: o.paymentMethod ?? "Online",
+      cardBrand: o.paymentGateway ?? "",
+      transactionId: o.paymentIntentId ?? o.razorpayPaymentId ?? "",
+      status: o.paymentStatus ?? "PENDING",
+      amountPaid: Number(o.total ?? 0),
+      refundAmount: 0,
     },
-    {
-      id: "note-2",
-      author: "Marcus Chen",
-      role: "admin" as const,
-      timestamp: "Dec 11, 2024 at 9:20 AM",
-      text: "Verified stock availability for all items. Dining table will ship from warehouse B. Estimated packaging time: 1-2 business days.",
-      customerVisible: false,
+    items: (o.items ?? []).map((it: any) => ({
+      id: it.id,
+      name: it.productName ?? it.product?.name ?? "Item",
+      sku: it.sku ?? it.product?.sku ?? "",
+      variant: it.variantName ?? "",
+      qty: it.quantity ?? 1,
+      price: Number(it.price ?? 0),
+      image: it.product?.images?.[0]?.url ?? "",
+    })),
+    totals: {
+      subtotal: Number(o.subtotal ?? 0),
+      shipping: Number(o.shippingTotal ?? 0),
+      tax: Number(o.taxTotal ?? 0),
+      discount: -Number(o.discountTotal ?? 0),
+      couponCode: o.coupon?.code ?? "",
+      total: Number(o.total ?? 0),
     },
-    {
-      id: "note-3",
-      author: "Marcus Chen",
-      role: "admin" as const,
-      timestamp: "Dec 13, 2024 at 3:45 PM",
-      text: "Your order has been shipped! Tracking number: 1Z999AA10123456784. Estimated delivery: December 18-20. Thank you for shopping with FSOW!",
-      customerVisible: true,
-    },
-  ] as OrderNote[],
-  timeline: [
-    {
-      status: "Order Placed",
-      date: "Dec 10, 2024 at 2:34 PM",
-      note: "Customer placed order via website",
-      icon: "clock",
+    notes: (o.notes ?? []).map((n: any) => ({
+      id: n.id,
+      author: n.authorName ?? "System",
+      role: (n.type ?? "system").toLowerCase() as "system" | "admin" | "customer",
+      timestamp: fmtDate(n.createdAt),
+      text: n.content ?? n.note ?? "",
+      customerVisible: n.isCustomerVisible ?? false,
+    })),
+    timeline: (o.timeline ?? []).map((t: any, i: number, arr: any[]) => ({
+      status: t.title ?? t.status ?? "",
+      date: fmtDate(t.createdAt),
+      note: t.description ?? "",
+      icon: i === 0 ? "clock" : i === arr.length - 1 ? "delivered" : "check",
       completed: true,
-    },
-    {
-      status: "Payment Confirmed",
-      date: "Dec 10, 2024 at 2:35 PM",
-      note: "Payment of $1,850.23 captured via Visa ending in 4242",
-      icon: "check",
-      completed: true,
-    },
-    {
-      status: "Processing",
-      date: "Dec 11, 2024 at 9:15 AM",
-      note: "Order verified and items reserved from inventory",
-      icon: "package",
-      completed: true,
-    },
-    {
-      status: "Shipped",
-      date: "Dec 13, 2024 at 3:42 PM",
-      note: "Shipped via UPS Ground. Tracking: 1Z999AA10123456784",
-      icon: "truck",
-      completed: true,
-      current: true,
-    },
-    {
-      status: "Out for Delivery",
-      date: "",
-      note: "Awaiting carrier update",
-      icon: "circle",
-      completed: false,
-    },
-    {
-      status: "Delivered",
-      date: "",
-      note: "Pending delivery confirmation",
-      icon: "delivered",
-      completed: false,
-    },
-  ],
-};
+    })),
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const timelineIcons: Record<string, React.ReactNode> = {
   clock: <Clock className="size-4" />,
@@ -255,15 +201,66 @@ export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
 
-  const [orderStatus, setOrderStatus] = React.useState(orderData.status);
-  const [paymentStatus, setPaymentStatus] = React.useState(orderData.paymentStatus);
-  const [fulfillmentStatus, setFulfillmentStatus] = React.useState(orderData.fulfillmentStatus);
-  const [notes, setNotes] = React.useState<OrderNote[]>(orderData.notes);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [orderData, setOrderData] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch(`/api/admin/orders/${orderId}`);
+        if (!res.ok) throw new Error("Order not found");
+        const json = await res.json();
+        setOrderData(mapOrderApi(json.data));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load order");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [orderId]);
+
+  const [orderStatus, setOrderStatus] = React.useState("");
+  const [paymentStatus, setPaymentStatus] = React.useState("");
+  const [fulfillmentStatus, setFulfillmentStatus] = React.useState("");
+  const [notes, setNotes] = React.useState<OrderNote[]>([]);
   const [newNote, setNewNote] = React.useState("");
   const [sendToCustomer, setSendToCustomer] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [showRefundDialog, setShowRefundDialog] = React.useState(false);
   const [copiedAddress, setCopiedAddress] = React.useState<"shipping" | "billing" | null>(null);
+
+  // Sync state when data loads
+  React.useEffect(() => {
+    if (!orderData) return;
+    setOrderStatus(orderData.status);
+    setPaymentStatus(orderData.paymentStatus);
+    setFulfillmentStatus(orderData.fulfillmentStatus);
+    setNotes(orderData.notes);
+  }, [orderData]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading order...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!orderData) {
+    return (
+      <div className="text-center py-24 text-muted-foreground">
+        <p>Order not found.</p>
+        <Button variant="outline" asChild className="mt-4">
+          <Link href="/admin/orders">Back to Orders</Link>
+        </Button>
+      </div>
+    );
+  }
 
   function handleAddNote() {
     if (!newNote.trim()) return;
