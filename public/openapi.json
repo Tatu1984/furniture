@@ -1,0 +1,377 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "FSOW Furniture API",
+    "description": "Complete API documentation for the FSOW Furniture e-commerce platform. Includes public storefront APIs, admin management APIs, and authentication endpoints.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "FSOW Support",
+      "email": "admin@fsow.in"
+    }
+  },
+  "servers": [
+    { "url": "http://localhost:3000", "description": "Local Development" },
+    { "url": "https://furniture-gules-pi.vercel.app", "description": "Production" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Authentication & user session" },
+    { "name": "Products", "description": "Public product catalog" },
+    { "name": "Categories", "description": "Public category browsing" },
+    { "name": "Cart", "description": "Shopping cart" },
+    { "name": "Wishlist", "description": "Customer wishlist" },
+    { "name": "Orders", "description": "Customer orders" },
+    { "name": "Payments", "description": "Payment processing (Razorpay)" },
+    { "name": "Search", "description": "Product search" },
+    { "name": "Blog", "description": "Blog posts & categories" },
+    { "name": "CMS", "description": "Pages, menus, banners" },
+    { "name": "Projects", "description": "Portfolio/projects showcase" },
+    { "name": "Upload", "description": "File uploads (Vercel Blob)" },
+    { "name": "Admin: Products", "description": "Product management" },
+    { "name": "Admin: Categories", "description": "Category management" },
+    { "name": "Admin: Orders", "description": "Order management" },
+    { "name": "Admin: Customers", "description": "Customer management" },
+    { "name": "Admin: Users", "description": "Staff user management" },
+    { "name": "Admin: Coupons", "description": "Coupon/discount management" },
+    { "name": "Admin: Banners", "description": "Banner management" },
+    { "name": "Admin: Menus", "description": "Navigation menu management" },
+    { "name": "Admin: Pages", "description": "CMS page management" },
+    { "name": "Admin: Inventory", "description": "Stock management" },
+    { "name": "Admin: Settings", "description": "Store settings" },
+    { "name": "Admin: Analytics", "description": "Dashboard analytics" },
+    { "name": "Admin: Projects", "description": "Project management" },
+    { "name": "Admin: Showrooms", "description": "Showroom management" },
+    { "name": "Admin: Payments", "description": "Payment records" },
+    { "name": "Admin: Email Templates", "description": "Email template management" },
+    { "name": "Admin: Content", "description": "Blog content management" }
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new customer account",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "password", "firstName", "lastName"], "properties": { "email": { "type": "string", "format": "email" }, "password": { "type": "string", "minLength": 6 }, "firstName": { "type": "string" }, "lastName": { "type": "string" } } } } } },
+        "responses": { "201": { "description": "User created" }, "400": { "description": "Validation error" }, "409": { "description": "Email already exists" } }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login with email and password",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "password"], "properties": { "email": { "type": "string", "format": "email" }, "password": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Login successful, sets auth-token cookie" }, "401": { "description": "Invalid credentials" } }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Logout (clears auth-token cookie)",
+        "responses": { "200": { "description": "Logged out" } }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get current authenticated user",
+        "responses": { "200": { "description": "User profile" }, "401": { "description": "Not authenticated" } }
+      },
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Update profile or change password",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "firstName": { "type": "string" }, "lastName": { "type": "string" }, "phone": { "type": "string" }, "currentPassword": { "type": "string" }, "newPassword": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Updated" }, "400": { "description": "Current password incorrect" }, "401": { "description": "Not authenticated" } }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request password reset email",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email"], "properties": { "email": { "type": "string", "format": "email" } } } } } },
+        "responses": { "200": { "description": "Reset email sent (if account exists)" } }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Reset password with token",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["token", "password"], "properties": { "token": { "type": "string" }, "password": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Password reset" }, "400": { "description": "Invalid/expired token" } }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "List published products with filtering, sorting, pagination",
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Search query" },
+          { "name": "category", "in": "query", "schema": { "type": "string" }, "description": "Category slug" },
+          { "name": "minPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "maxPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "materials", "in": "query", "schema": { "type": "string" }, "description": "Comma-separated materials" },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["newest", "price_asc", "price_desc", "name_asc", "bestseller", "featured"] } },
+          { "name": "inStock", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "featured", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "bestseller", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": { "200": { "description": "Paginated product list with facets" } }
+      }
+    },
+    "/api/products/{slug}": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Get product details by slug",
+        "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Full product with images, variants, specs, reviews" }, "404": { "description": "Product not found or not published" } }
+      }
+    },
+    "/api/products/{slug}/reviews": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "List approved reviews for a product",
+        "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Reviews list" } }
+      },
+      "post": {
+        "tags": ["Products"],
+        "summary": "Submit a review (authenticated)",
+        "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["rating"], "properties": { "rating": { "type": "integer", "minimum": 1, "maximum": 5 }, "title": { "type": "string" }, "content": { "type": "string" } } } } } },
+        "responses": { "201": { "description": "Review submitted" }, "401": { "description": "Not authenticated" } }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "List active categories as tree",
+        "responses": { "200": { "description": "Category tree with product counts" } }
+      }
+    },
+    "/api/categories/{slug}": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "Get category with paginated products",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string" } },
+          { "name": "minPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "maxPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "inStock", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Category info + paginated products" }, "404": { "description": "Category not found" } }
+      }
+    },
+    "/api/cart": {
+      "get": { "tags": ["Cart"], "summary": "Get cart contents", "responses": { "200": { "description": "Cart items" } } },
+      "post": { "tags": ["Cart"], "summary": "Add item to cart", "responses": { "200": { "description": "Item added" } } },
+      "put": { "tags": ["Cart"], "summary": "Update cart item quantity", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Cart"], "summary": "Remove item from cart", "responses": { "200": { "description": "Removed" } } }
+    },
+    "/api/cart/apply-coupon": {
+      "post": { "tags": ["Cart"], "summary": "Apply coupon code to cart", "responses": { "200": { "description": "Coupon applied" }, "400": { "description": "Invalid coupon" } } }
+    },
+    "/api/wishlist": {
+      "get": { "tags": ["Wishlist"], "summary": "Get wishlist items", "responses": { "200": { "description": "Wishlist" } } },
+      "post": { "tags": ["Wishlist"], "summary": "Add product to wishlist", "responses": { "201": { "description": "Added" } } },
+      "delete": { "tags": ["Wishlist"], "summary": "Remove from wishlist", "responses": { "200": { "description": "Removed" } } }
+    },
+    "/api/orders": {
+      "get": { "tags": ["Orders"], "summary": "List customer orders", "responses": { "200": { "description": "Order list" } } },
+      "post": { "tags": ["Orders"], "summary": "Create order", "responses": { "201": { "description": "Order created" } } }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "tags": ["Orders"],
+        "summary": "Get order details",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Order details" }, "404": { "description": "Not found" } }
+      }
+    },
+    "/api/payments/create-order": {
+      "post": { "tags": ["Payments"], "summary": "Create Razorpay payment order", "responses": { "200": { "description": "Razorpay order ID + key" } } }
+    },
+    "/api/payments/verify": {
+      "post": { "tags": ["Payments"], "summary": "Verify Razorpay payment signature", "responses": { "200": { "description": "Payment verified, order confirmed" } } }
+    },
+    "/api/search": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Search products, categories, pages",
+        "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Search results" } }
+      }
+    },
+    "/api/upload": {
+      "post": {
+        "tags": ["Upload"],
+        "summary": "Upload images to Vercel Blob",
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "file": { "type": "array", "items": { "type": "string", "format": "binary" } } } } } } },
+        "responses": { "200": { "description": "{ urls: string[] }" }, "400": { "description": "Invalid file type or size" } }
+      }
+    },
+    "/api/blog/posts": { "get": { "tags": ["Blog"], "summary": "List published blog posts", "responses": { "200": { "description": "Blog post list" } } } },
+    "/api/blog/posts/{slug}": { "get": { "tags": ["Blog"], "summary": "Get blog post by slug", "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Post detail" } } } },
+    "/api/blog/categories": { "get": { "tags": ["Blog"], "summary": "List blog categories", "responses": { "200": { "description": "Category list" } } } },
+    "/api/cms/pages/{slug}": { "get": { "tags": ["CMS"], "summary": "Get CMS page by slug", "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Page content" } } } },
+    "/api/cms/menus": { "get": { "tags": ["CMS"], "summary": "Get active menus by location", "responses": { "200": { "description": "Menu tree" } } } },
+    "/api/cms/banners": { "get": { "tags": ["CMS"], "summary": "Get active banners by position", "responses": { "200": { "description": "Banner list" } } } },
+    "/api/projects": { "get": { "tags": ["Projects"], "summary": "List published projects", "responses": { "200": { "description": "Project list" } } } },
+    "/api/projects/{slug}": { "get": { "tags": ["Projects"], "summary": "Get project by slug", "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Project detail" } } } },
+    "/api/showrooms": { "get": { "tags": ["Projects"], "summary": "List showrooms", "responses": { "200": { "description": "Showroom list" } } } },
+    "/api/newsletter/subscribe": { "post": { "tags": ["CMS"], "summary": "Subscribe to newsletter", "responses": { "200": { "description": "Subscribed" } } } },
+    "/api/health": { "get": { "tags": ["CMS"], "summary": "Health check", "responses": { "200": { "description": "OK" } } } },
+
+    "/api/admin/products": {
+      "get": { "tags": ["Admin: Products"], "summary": "List all products (paginated, filterable)", "parameters": [{ "name": "status", "in": "query", "schema": { "type": "string", "enum": ["PUBLISHED", "DRAFT", "ARCHIVED"] } }, { "name": "page", "in": "query", "schema": { "type": "integer" } }, { "name": "limit", "in": "query", "schema": { "type": "integer" } }], "responses": { "200": { "description": "Paginated product list" } } }
+    },
+    "/api/admin/products/{id}": {
+      "get": { "tags": ["Admin: Products"], "summary": "Get product by ID", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Product detail" } } },
+      "put": { "tags": ["Admin: Products"], "summary": "Update product", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Products"], "summary": "Delete product (archives if has orders)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted or archived" } } }
+    },
+    "/api/admin/products/{id}/duplicate": {
+      "post": { "tags": ["Admin: Products"], "summary": "Duplicate a product as DRAFT", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "201": { "description": "Cloned product" } } }
+    },
+    "/api/admin/products/bulk": {
+      "post": { "tags": ["Admin: Products"], "summary": "Bulk delete/archive/publish products", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action", "ids"], "properties": { "action": { "type": "string", "enum": ["delete", "archive", "publish"] }, "ids": { "type": "array", "items": { "type": "string" } } } } } } }, "responses": { "200": { "description": "Bulk action result" } } }
+    },
+    "/api/admin/categories": {
+      "get": { "tags": ["Admin: Categories"], "summary": "List categories (flat or tree)", "parameters": [{ "name": "flat", "in": "query", "schema": { "type": "boolean" } }, { "name": "includeInactive", "in": "query", "schema": { "type": "boolean" } }], "responses": { "200": { "description": "Category list" } } },
+      "post": { "tags": ["Admin: Categories"], "summary": "Create category", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/categories/{id}": {
+      "get": { "tags": ["Admin: Categories"], "summary": "Get category", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Category" } } },
+      "put": { "tags": ["Admin: Categories"], "summary": "Update category", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Categories"], "summary": "Delete category", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/orders": {
+      "get": { "tags": ["Admin: Orders"], "summary": "List orders with filters", "responses": { "200": { "description": "Order list" } } },
+      "post": { "tags": ["Admin: Orders"], "summary": "Create order manually", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/orders/{id}": {
+      "get": { "tags": ["Admin: Orders"], "summary": "Get order detail", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Order" } } },
+      "put": { "tags": ["Admin: Orders"], "summary": "Update order status", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Orders"], "summary": "Delete order", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/customers": {
+      "get": { "tags": ["Admin: Customers"], "summary": "List customers", "parameters": [{ "name": "search", "in": "query", "schema": { "type": "string" } }, { "name": "status", "in": "query", "schema": { "type": "string" } }, { "name": "page", "in": "query", "schema": { "type": "integer" } }], "responses": { "200": { "description": "Customer list" } } }
+    },
+    "/api/admin/customers/{id}": {
+      "get": { "tags": ["Admin: Customers"], "summary": "Get customer profile with orders", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Customer detail" } } },
+      "put": { "tags": ["Admin: Customers"], "summary": "Update customer", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Customers"], "summary": "Delete customer", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/users": {
+      "get": { "tags": ["Admin: Users"], "summary": "List staff users (ADMIN only)", "responses": { "200": { "description": "Staff list" }, "403": { "description": "Not admin" } } },
+      "post": { "tags": ["Admin: Users"], "summary": "Create staff user", "responses": { "201": { "description": "Created" }, "403": { "description": "Not admin" } } }
+    },
+    "/api/admin/users/{id}": {
+      "get": { "tags": ["Admin: Users"], "summary": "Get user", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "User" } } },
+      "put": { "tags": ["Admin: Users"], "summary": "Update user", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Users"], "summary": "Delete user", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/coupons": {
+      "get": { "tags": ["Admin: Coupons"], "summary": "List coupons", "responses": { "200": { "description": "Coupon list" } } },
+      "post": { "tags": ["Admin: Coupons"], "summary": "Create coupon", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/coupons/{id}": {
+      "get": { "tags": ["Admin: Coupons"], "summary": "Get coupon", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Coupon" } } },
+      "put": { "tags": ["Admin: Coupons"], "summary": "Update coupon", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Coupons"], "summary": "Delete coupon", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/banners": {
+      "get": { "tags": ["Admin: Banners"], "summary": "List banners", "responses": { "200": { "description": "Banner list" } } },
+      "post": { "tags": ["Admin: Banners"], "summary": "Create banner", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/banners/{id}": {
+      "get": { "tags": ["Admin: Banners"], "summary": "Get banner", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Banner" } } },
+      "put": { "tags": ["Admin: Banners"], "summary": "Update banner", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Banners"], "summary": "Delete banner", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/menus": {
+      "get": { "tags": ["Admin: Menus"], "summary": "List menus with items", "responses": { "200": { "description": "Menu list" } } },
+      "post": { "tags": ["Admin: Menus"], "summary": "Create menu", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/menus/{id}": {
+      "get": { "tags": ["Admin: Menus"], "summary": "Get menu with items", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Menu" } } },
+      "put": { "tags": ["Admin: Menus"], "summary": "Update menu settings", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Menus"], "summary": "Delete menu", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/menus/{id}/items": {
+      "get": { "tags": ["Admin: Menus"], "summary": "List menu items", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Items tree" } } },
+      "post": { "tags": ["Admin: Menus"], "summary": "Add menu item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/menus/{id}/items/{itemId}": {
+      "put": { "tags": ["Admin: Menus"], "summary": "Update menu item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }, { "name": "itemId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Menus"], "summary": "Delete menu item (cascades children)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }, { "name": "itemId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/menus/{id}/reorder": {
+      "put": { "tags": ["Admin: Menus"], "summary": "Bulk reorder menu items", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "parentId": { "type": "string" }, "sortOrder": { "type": "integer" } } } } } } } } }, "responses": { "200": { "description": "Reordered" } } }
+    },
+    "/api/admin/pages": {
+      "get": { "tags": ["Admin: Pages"], "summary": "List CMS pages", "responses": { "200": { "description": "Page list" } } },
+      "post": { "tags": ["Admin: Pages"], "summary": "Create page", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/pages/{id}": {
+      "get": { "tags": ["Admin: Pages"], "summary": "Get page", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Page" } } },
+      "put": { "tags": ["Admin: Pages"], "summary": "Update page", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Pages"], "summary": "Delete page", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/inventory": {
+      "get": { "tags": ["Admin: Inventory"], "summary": "List products with stock info", "parameters": [{ "name": "lowStock", "in": "query", "schema": { "type": "boolean" } }, { "name": "stockStatus", "in": "query", "schema": { "type": "string" } }], "responses": { "200": { "description": "Inventory list" } } },
+      "put": { "tags": ["Admin: Inventory"], "summary": "Bulk update stock levels", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "updates": { "type": "array", "items": { "type": "object", "required": ["productId", "stockQuantity"], "properties": { "productId": { "type": "string" }, "stockQuantity": { "type": "integer" }, "reason": { "type": "string" } } } } } } } } }, "responses": { "200": { "description": "Updated" } } }
+    },
+    "/api/admin/inventory/{id}": {
+      "get": { "tags": ["Admin: Inventory"], "summary": "Get stock detail for product", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Stock info with logs" } } },
+      "put": { "tags": ["Admin: Inventory"], "summary": "Update single product stock", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "stockQuantity": { "type": "integer" }, "adjustment": { "type": "integer" }, "reason": { "type": "string" } } } } } }, "responses": { "200": { "description": "Updated" } } }
+    },
+    "/api/admin/settings": {
+      "get": { "tags": ["Admin: Settings"], "summary": "Get settings (by group or all)", "parameters": [{ "name": "group", "in": "query", "schema": { "type": "string", "enum": ["general", "shipping", "tax", "payments", "email", "notifications"] } }], "responses": { "200": { "description": "Settings grouped" } } },
+      "put": { "tags": ["Admin: Settings"], "summary": "Batch upsert settings", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "settings": { "type": "array", "items": { "type": "object", "required": ["key", "value"], "properties": { "key": { "type": "string" }, "value": {}, "group": { "type": "string" } } } } } } } } }, "responses": { "200": { "description": "Saved" } } }
+    },
+    "/api/admin/analytics": {
+      "get": { "tags": ["Admin: Analytics"], "summary": "Dashboard metrics", "parameters": [{ "name": "period", "in": "query", "schema": { "type": "string", "enum": ["7d", "30d", "90d", "365d"] } }], "responses": { "200": { "description": "Revenue, orders, customers, charts, top products" } } }
+    },
+    "/api/admin/payments": {
+      "get": { "tags": ["Admin: Payments"], "summary": "List payment records", "responses": { "200": { "description": "Payment list" } } }
+    },
+    "/api/admin/content": {
+      "get": { "tags": ["Admin: Content"], "summary": "List blog posts", "responses": { "200": { "description": "Post list" } } },
+      "post": { "tags": ["Admin: Content"], "summary": "Create blog post", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/content/{id}": {
+      "get": { "tags": ["Admin: Content"], "summary": "Get blog post", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Post" } } },
+      "put": { "tags": ["Admin: Content"], "summary": "Update blog post", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Content"], "summary": "Delete blog post", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/email-templates": {
+      "get": { "tags": ["Admin: Email Templates"], "summary": "List email templates", "responses": { "200": { "description": "Template list" } } },
+      "post": { "tags": ["Admin: Email Templates"], "summary": "Create template", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/email-templates/{id}": {
+      "get": { "tags": ["Admin: Email Templates"], "summary": "Get template", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Template" } } },
+      "put": { "tags": ["Admin: Email Templates"], "summary": "Update template", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Email Templates"], "summary": "Delete template", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/projects": {
+      "get": { "tags": ["Admin: Projects"], "summary": "List projects", "responses": { "200": { "description": "Project list" } } },
+      "post": { "tags": ["Admin: Projects"], "summary": "Create project", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/projects/{id}": {
+      "get": { "tags": ["Admin: Projects"], "summary": "Get project", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Project" } } },
+      "put": { "tags": ["Admin: Projects"], "summary": "Update project", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Projects"], "summary": "Delete project", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/admin/showrooms": {
+      "get": { "tags": ["Admin: Showrooms"], "summary": "List showrooms", "responses": { "200": { "description": "Showroom list" } } },
+      "post": { "tags": ["Admin: Showrooms"], "summary": "Create showroom", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/admin/showrooms/{id}": {
+      "get": { "tags": ["Admin: Showrooms"], "summary": "Get showroom", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Showroom" } } },
+      "put": { "tags": ["Admin: Showrooms"], "summary": "Update showroom", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Admin: Showrooms"], "summary": "Delete showroom", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Deleted" } } }
+    }
+  }
+}

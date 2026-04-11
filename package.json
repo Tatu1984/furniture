@@ -36,6 +36,7 @@
     "react-hook-form": "^7.71.2",
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
+    "swagger-ui-react": "^5.32.2",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
@@ -50,6 +51,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/swagger-ui-react": "^5.18.0",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
