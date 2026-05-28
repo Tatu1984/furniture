@@ -217,7 +217,7 @@ export default function EditProductPage() {
           stockQuantity: product.stockQuantity || 0,
           lowStockThreshold: product.lowStockThreshold || 5,
           stockStatus: (product.stockStatus || "IN_STOCK").toLowerCase() as ProductFormValues["stockStatus"],
-          continueSelling: product.allowBackorders || false,
+          continueSelling: product.backorderMode === "YES" || product.backorderMode === "NOTIFY",
           trackQuantity: product.manageStock ?? true,
           requiresShipping: product.requiresShipping ?? true,
           weight: product.weight ?? undefined,
@@ -232,8 +232,8 @@ export default function EditProductPage() {
           tags: product.tags || [],
           featured: product.isFeatured || false,
           bestseller: product.isBestseller || false,
-          metaTitle: product.metaTitle || "",
-          metaDescription: product.metaDescription || "",
+          metaTitle: product.seoTitle || "",
+          metaDescription: product.seoDescription || "",
           variants: [],
         });
 
@@ -340,14 +340,14 @@ export default function EditProductPage() {
         tags: data.tags,
         isFeatured: data.featured,
         isBestseller: data.bestseller,
-        metaTitle: data.metaTitle || undefined,
-        metaDescription: data.metaDescription || undefined,
+        seoTitle: data.metaTitle || undefined,
+        seoDescription: data.metaDescription || undefined,
         weight: data.weight || null,
         width: data.width || null,
         height: data.height || null,
         depth: data.length || null,
         manageStock: data.trackQuantity,
-        allowBackorders: data.continueSelling,
+        backorderMode: data.continueSelling ? "YES" : "NO",
         requiresShipping: data.requiresShipping,
       };
 
