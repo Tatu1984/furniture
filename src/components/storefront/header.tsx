@@ -7,7 +7,6 @@ import {
   Heart,
   Menu,
   Search,
-  ShoppingBag,
   User,
   LogOut,
   X,
@@ -15,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { SearchCommand } from "@/components/shared/search-command";
@@ -33,9 +31,7 @@ export function Header({ navLinks = [] }: { navLinks?: NavLink[] }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
   const scrollDirection = useScrollDirection();
-  const totalItems = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
   const wishlistCount = useWishlistStore((s) => s.items.length);
-  const toggleCart = useCartStore((s) => s.toggleCart);
   const { user, isAuthenticated } = useAuthStore();
   const logout = useAuthStore((s) => s.logout);
 
@@ -50,7 +46,7 @@ export function Header({ navLinks = [] }: { navLinks?: NavLink[] }) {
     >
       {/* Top bar */}
       <div className="bg-accent text-accent-foreground text-xs text-center py-1.5 px-4">
-        Free shipping on orders over &#8377;999 | 30-day free returns
+        Made-to-order furniture &middot; Share your preferences and our team will email you a quote
       </div>
 
       <div className="container mx-auto px-4">
@@ -193,21 +189,6 @@ export function Header({ navLinks = [] }: { navLinks?: NavLink[] }) {
                   </Badge>
                 )}
               </Link>
-            </Button>
-
-            {/* Cart */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              onClick={toggleCart}
-            >
-              <ShoppingBag className="h-5 w-5" />
-              {totalItems > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                  {totalItems}
-                </Badge>
-              )}
             </Button>
           </div>
         </div>

@@ -237,6 +237,15 @@ enum InventoryLogType {
   ADJUSTMENT
 }
 
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  CONFIRMED
+  CLOSED
+  CANCELLED
+}
+
 // =============================================================================
 // USER & AUTH
 // =============================================================================
@@ -440,6 +449,7 @@ model Product {
   couponProducts   CouponProduct[]
   inventoryLogs    InventoryLog[]
   productViews     ProductView[]
+  inquiries        OrderInquiry[]
 
   @@index([slug])
   @@index([sku])
@@ -830,6 +840,68 @@ model Shipment {
 
   @@index([orderId])
   @@map("shipments")
+}
+
+// =============================================================================
+// ORDER INQUIRIES (custom-quote workflow — no payment, admin replies via email)
+// =============================================================================
+
+model OrderInquiry {
+  id              String        @id @default(cuid())
+  inquiryNumber   String        @unique
+
+  // Product reference (preserved as snapshot too, in case product is later changed/deleted)
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName     String
+  productSlug     String
+  productSku      String?
+  productImage    String?
+  unitPrice       Decimal?      @db.Decimal(10, 2)
+  currency        String        @default("USD")
+
+  // Selected preferences
+  quantity        Int           @default(1)
+  selectedColor   String?
+  selectedSize    String?
+  selectedMaterial String?
+  variantId       String?
+  preferences     Json?
+
+  // Customer info
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  shippingAddress String?
+  shippingCity    String?
+  shippingState   String?
+  shippingPostal  String?
+  shippingCountry String?       @default("IN")
+
+  // Free-text
+  notes           String?
+  preferredDeliveryTimeline String?
+  preferredContact String?
+
+  // Workflow
+  status          InquiryStatus @default(NEW)
+  internalNotes   String?
+  assignedTo      String?
+  lastContactedAt DateTime?
+
+  // Source / fraud
+  source          String?       @default("website")
+  ipAddress       String?
+  userAgent       String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status])
+  @@index([customerEmail])
+  @@index([createdAt])
+  @@index([productId])
+  @@map("order_inquiries")
 }
 
 // =============================================================================

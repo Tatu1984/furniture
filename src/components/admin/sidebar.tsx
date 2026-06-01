@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Box,
+  ClipboardList,
   CreditCard,
   FolderOpen,
   FolderTree,
@@ -38,6 +39,7 @@ const navGroups = [
     label: "Main",
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+      { label: "Inquiries", href: "/admin/inquiries", icon: ClipboardList },
       { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
       { label: "Products", href: "/admin/products", icon: Box },
       { label: "Categories", href: "/admin/categories", icon: FolderTree },

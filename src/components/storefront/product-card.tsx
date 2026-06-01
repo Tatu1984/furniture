@@ -2,14 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, ShoppingCart } from "lucide-react";
+import { ClipboardList, Heart } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PriceDisplay } from "@/components/shared/price-display";
 import { RatingStars } from "@/components/shared/rating-stars";
-import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 
 // ---------------------------------------------------------------------------
@@ -38,7 +37,6 @@ interface ProductCardProps {
 // ---------------------------------------------------------------------------
 
 export function ProductCard({ product, className }: ProductCardProps) {
-  const addItem = useCartStore((s) => s.addItem);
   const toggleItem = useWishlistStore((s) => s.toggleItem);
   const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id));
 
@@ -119,22 +117,11 @@ export function ProductCard({ product, className }: ProductCardProps) {
             compareAtPrice={product.compareAtPrice}
           />
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              addItem({
-                productId: product.id,
-                name: product.name,
-                slug: product.slug,
-                image: product.image,
-                price: product.price,
-                variant: {},
-              })
-            }
-          >
-            <ShoppingCart className="size-4" />
-            <span className="sr-only sm:not-sr-only sm:ml-1">Add</span>
+          <Button size="sm" asChild>
+            <Link href={`/order/${product.slug}`}>
+              <ClipboardList className="size-4" />
+              <span className="sr-only sm:not-sr-only sm:ml-1">Order</span>
+            </Link>
           </Button>
         </div>
       </div>

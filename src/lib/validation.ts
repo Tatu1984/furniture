@@ -463,6 +463,43 @@ export const settingSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Order inquiries (custom-quote workflow)
+// ---------------------------------------------------------------------------
+
+export const createInquirySchema = z.object({
+  productId: z.string().min(1, "Product is required"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1").max(9999),
+  selectedColor: z.string().max(100).optional(),
+  selectedSize: z.string().max(100).optional(),
+  selectedMaterial: z.string().max(100).optional(),
+  variantId: z.string().optional(),
+  preferences: z.record(z.string(), z.unknown()).optional(),
+
+  customerName: z.string().min(1, "Name is required").max(200),
+  customerEmail: emailSchema,
+  customerPhone: z.string().min(1).max(50).optional(),
+
+  shippingAddress: z.string().max(500).optional(),
+  shippingCity: z.string().max(100).optional(),
+  shippingState: z.string().max(100).optional(),
+  shippingPostal: z.string().max(20).optional(),
+  shippingCountry: z.string().max(100).optional(),
+
+  notes: z.string().max(2000).optional(),
+  preferredDeliveryTimeline: z.string().max(200).optional(),
+  preferredContact: z.enum(["EMAIL", "PHONE", "WHATSAPP"]).optional(),
+});
+
+export const updateInquirySchema = z.object({
+  status: z
+    .enum(["NEW", "CONTACTED", "QUOTED", "CONFIRMED", "CLOSED", "CANCELLED"])
+    .optional(),
+  internalNotes: z.string().max(5000).optional(),
+  assignedTo: z.string().max(200).optional(),
+  lastContactedAt: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
 

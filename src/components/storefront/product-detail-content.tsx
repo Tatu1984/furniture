@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
+  ClipboardList,
   Heart,
-  Minus,
-  Plus,
-  ShoppingCart,
   Star,
   Truck,
   Package,
@@ -17,7 +16,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,9 +37,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { BreadcrumbNav } from "@/components/shared/breadcrumb-nav";
 import { PriceDisplay } from "@/components/shared/price-display";
 import { RatingStars } from "@/components/shared/rating-stars";
-import { SectionHeading } from "@/components/shared/section-heading";
-import { ProductCard } from "@/components/storefront/product-card";
-import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 
 // ---------------------------------------------------------------------------
@@ -154,8 +149,6 @@ interface ProductDetailContentProps {
 export function ProductDetailContent({ product: raw }: ProductDetailContentProps) {
   const product = mapApiProduct(raw);
 
-  const addItem = useCartStore((s) => s.addItem);
-  const toggleCart = useCartStore((s) => s.toggleCart);
   const toggleItem = useWishlistStore((s) => s.toggleItem);
   const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id));
 
@@ -167,25 +160,6 @@ export function ProductDetailContent({ product: raw }: ProductDetailContentProps
   const [selectedMaterial, setSelectedMaterial] = useState(
     product.materials[0] ?? "",
   );
-  const [quantity, setQuantity] = useState(1);
-  const [assemblyAddon, setAssemblyAddon] = useState(false);
-
-  const handleAddToCart = () => {
-    addItem({
-      productId: product.id,
-      name: product.name,
-      slug: product.slug,
-      image: product.images[0] ?? "",
-      price: product.price + (assemblyAddon ? 99 : 0),
-      variant: {
-        color: selectedColor,
-        size: selectedSize,
-        material: selectedMaterial,
-      },
-      quantity,
-    });
-    toggleCart();
-  };
 
   const handleToggleWishlist = () => {
     toggleItem({
@@ -364,59 +338,13 @@ export function ProductDetailContent({ product: raw }: ProductDetailContentProps
             </Select>
           </div>
 
-          {/* ── Quantity selector ─────────────────────────────────────── */}
-          <div>
-            <Label className="mb-3 text-sm font-semibold">Quantity</Label>
-            <div className="mt-2 flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                disabled={quantity <= 1}
-              >
-                <Minus className="size-4" />
-              </Button>
-              <span className="w-12 text-center text-lg font-semibold">
-                {quantity}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-                disabled={quantity >= 10}
-              >
-                <Plus className="size-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* ── Assembly add-on ───────────────────────────────────────── */}
-          {product.assemblyRequired && (
-            <Label className="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/50">
-              <Checkbox
-                checked={assemblyAddon}
-                onCheckedChange={(checked) =>
-                  setAssemblyAddon(checked === true)
-                }
-              />
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">
-                  Add professional assembly (+&#8377;99)
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Our team will assemble your furniture on delivery
-                  {product.assemblyTime &&
-                    ` (estimated ${product.assemblyTime})`}
-                </span>
-              </div>
-            </Label>
-          )}
-
           {/* ── Action buttons ────────────────────────────────────────── */}
           <div className="flex gap-3">
-            <Button size="lg" className="flex-1" onClick={handleAddToCart}>
-              <ShoppingCart className="size-5" />
-              Add to Cart
+            <Button size="lg" className="flex-1" asChild>
+              <Link href={`/order/${product.slug}`}>
+                <ClipboardList className="size-5" />
+                Order Now
+              </Link>
             </Button>
             <Button
               size="lg"
@@ -433,6 +361,11 @@ export function ProductDetailContent({ product: raw }: ProductDetailContentProps
               {isInWishlist ? "Saved" : "Wishlist"}
             </Button>
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            We tailor every order — share your preferences and our team will
+            email you with a confirmed quote and delivery options.
+          </p>
 
           {/* ── Shipping estimate ─────────────────────────────────────── */}
           <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4">

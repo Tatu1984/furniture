@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/carousel";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { PriceDisplay } from "@/components/shared/price-display";
-import { useCartStore } from "@/stores/cart-store";
 
 type FeaturedProduct = {
   id: string;
@@ -25,7 +24,6 @@ type FeaturedProduct = {
 };
 
 export function FeaturedProducts() {
-  const addItem = useCartStore((s) => s.addItem);
   const [products, setProducts] = React.useState<FeaturedProduct[]>([]);
 
   React.useEffect(() => {
@@ -110,24 +108,13 @@ export function FeaturedProducts() {
 
                     <div className="mt-1 flex items-center justify-between">
                       <PriceDisplay price={product.price} />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          addItem({
-                            productId: product.id,
-                            name: product.name,
-                            slug: product.slug,
-                            image: product.image ?? "",
-                            price: product.price,
-                            variant: {},
-                          })
-                        }
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                        <span className="sr-only sm:not-sr-only sm:ml-1">
-                          Add
-                        </span>
+                      <Button size="sm" asChild>
+                        <Link href={`/order/${product.slug}`}>
+                          <ClipboardList className="h-4 w-4" />
+                          <span className="sr-only sm:not-sr-only sm:ml-1">
+                            Order
+                          </span>
+                        </Link>
                       </Button>
                     </div>
                   </div>

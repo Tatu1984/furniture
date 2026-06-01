@@ -20,6 +20,7 @@ type EnvConfig = {
   SMTP_PASS: string;
   FROM_EMAIL: string;
   FROM_NAME: string;
+  ADMIN_NOTIFICATION_EMAIL: string;
 
   // Razorpay
   RAZORPAY_KEY_ID: string;
@@ -73,6 +74,7 @@ export const env: EnvConfig = {
   SMTP_PASS: getEnvVar("SMTP_PASS"),
   FROM_EMAIL: getEnvVar("FROM_EMAIL", "noreply@fsow.in"),
   FROM_NAME: getEnvVar("FROM_NAME", "FSOW Furniture"),
+  ADMIN_NOTIFICATION_EMAIL: getEnvVar("ADMIN_NOTIFICATION_EMAIL"),
 
   RAZORPAY_KEY_ID: getEnvVar("RAZORPAY_KEY_ID"),
   RAZORPAY_KEY_SECRET: getEnvVar("RAZORPAY_KEY_SECRET"),
